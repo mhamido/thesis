@@ -9,10 +9,7 @@ open import Data.Bool renaming (Bool to 𝔹) using ()
 open import Data.Nat using (ℕ)
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; _≢_; refl; trans; sym; cong; cong-app; subst)
-
-data ⊥ : Set where
-ex-falso : {A : Set} → ⊥ → A
-ex-falso ()
+open import Data.Empty using (⊥) renaming (⊥-elim to ex-falso)
 \end{code}
 
 --------------------------------------------------------------------------------
@@ -32,9 +29,7 @@ data Type : Set where
   -- Sum types
   _∣_ : Type → Type → Type
 
--- TODO: infix for both _×_ and _∣_
 infixr 20 _⇒_
-
 \end{code}
 
 Importing contexts and environments
@@ -142,11 +137,16 @@ data _⊢_⇓_ : Environment Γ → Γ ⊢ T → Value T → Set where
   LET   : δ ⊢ e₁ ⇓ v₁ → (δ , v₁) ⊢ e₂ ⇓ v → δ ⊢ Let e₁ In e₂ ⇓ v
   FUN   : ∀ {δ : Environment Γ} → (e : (Γ , T₁) ⊢ T₂) → δ ⊢ (ƛ e) ⇓ (Closure δ e)
   APP   : ∀ {δ' : Environment Δ} {e₁ : Γ ⊢ (T₁ ⇒ T₂)} {e : (Δ , T₁) ⊢ T₂} {v₂ : Value T₁}
-          → δ ⊢ e₁ ⇓ (Closure δ' e) → δ ⊢ e₂ ⇓ v₂ → ((δ' , v₂) ⊢ e ⇓ v) → δ ⊢ (e₁ · e₂) ⇓ v
+          → δ ⊢ e₁ ⇓ (Closure δ' e)
+          → δ ⊢ e₂ ⇓ v₂
+          → ((δ' , v₂) ⊢ e ⇓ v)
+          → δ ⊢ (e₁ · e₂) ⇓ v
   LETREC : (e : (Γ , T₁ ⇒ T₂ , T₁) ⊢ T₂) → δ ⊢ LetRec e ⇓ RecClosure δ e
   RECAPP : ∀ {δ' : Environment Δ} {e₁ : Γ ⊢ (T₁ ⇒ T₂)} {e : (Δ , T₁ ⇒ T₂ , T₁) ⊢ T₂} {v₂ : Value T₁}
-           → δ ⊢ e₁ ⇓ (RecClosure δ' e) → δ ⊢ e₂ ⇓ v₂ → ((δ' , (RecClosure δ' e) , v₂) ⊢ e ⇓ v) → δ ⊢ (e₁ · e₂) ⇓ v
-
+           → δ ⊢ e₁ ⇓ (RecClosure δ' e)
+           → δ ⊢ e₂ ⇓ v₂
+           → ((δ' , (RecClosure δ' e) , v₂) ⊢ e ⇓ v)
+           → δ ⊢ (e₁ · e₂) ⇓ v
   TUPLE  : δ ⊢ e₁ ⇓ v₁ → δ ⊢ e₂ ⇓ v₂ → δ ⊢ (e₁ , e₂) ⇓ (v₁ , v₂)
   FST    : δ ⊢ e₁ ⇓ (v₁ , v₂) → δ ⊢ fst e₁ ⇓ v₁
   SND    : δ ⊢ e₁ ⇓ (v₁ , v₂) → δ ⊢ snd e₁ ⇓ v₂
@@ -154,13 +154,15 @@ data _⊢_⇓_ : Environment Γ → Γ ⊢ T → Value T → Set where
   INL    : δ ⊢ e₁ ⇓ v₁ → δ ⊢ inl {T₂ = T₂} e₁ ⇓ inl v₁
   INR    : δ ⊢ e₂ ⇓ v₂ → δ ⊢ inr {T₁ = T₁} e₂ ⇓ inr v₂
 
-  CASE₁  : ∀ {e : Γ ⊢ (T₁ ∣ T₂)} {v : Value T₁} {u : Value T}
+  CASE₁  : {e : Γ ⊢ (T₁ ∣ T₂)} {e₁ : (Γ , T₁) ⊢ T} {e₂ : (Γ , T₂) ⊢ T}
+         → {v : Value T₁} {u : Value T}
          → δ       ⊢ e  ⇓ inl v
          → (δ , v) ⊢ e₁ ⇓ u
          -----------------------------
          → δ ⊢ (case e of e₁ ∣ e₂) ⇓ u
          
-  CASE₂  : ∀ {e : Γ ⊢ (T₁ ∣ T₂)} {v : Value T₂} {u : Value T}
+  CASE₂  : {e : Γ ⊢ (T₁ ∣ T₂)} {e₁ : (Γ , T₁) ⊢ T} {e₂ : (Γ , T₂) ⊢ T}
+         → {v : Value _} {u : Value _}
          → δ       ⊢ e  ⇓ inr v
          → (δ , v) ⊢ e₂ ⇓ u
          -----------------------------
@@ -204,15 +206,15 @@ data Frame : Type → Type → Set where
   ----
   Tuple₁         : Hole        → Γ ⊢ T₂ → Frame T T₁
   Tuple₂         : δ ⊢ e₁ ⇓ v₁ → Hole   → Frame T T₂
+  ----
   Fst            : Hole        → Frame T₁ (T₁ × T₂)
   Snd            : Hole        → Frame T₂ (T₁ × T₂)
 
-
-  Inl₁            : Hole → Frame (T₁ ∣ T₂) T₁
-  Inl₂            : δ ⊢ e₁ ⇓ v₁ → Frame (T₁ ∣ T₂) T
+  Inl₁           : Hole        → Frame (T₁ ∣ T₂) T₁
+  Inl₂           : δ ⊢ e₁ ⇓ v₁ → Frame (T₁ ∣ T₂) T
   
-  Inr₁            : Hole → Frame (T₁ ∣ T₂) T₂
-  Inr₂            : δ ⊢ e₂ ⇓ v₂ → Frame (T₁ ∣ T₂) T
+  Inr₁           : Hole        → Frame (T₁ ∣ T₂) T₂
+  Inr₂           : δ ⊢ e₂ ⇓ v₂ → Frame (T₁ ∣ T₂) T
 
   Case₁          : Hole
                  → (Γ , T₁) ⊢ T
@@ -222,14 +224,14 @@ data Frame : Type → Type → Set where
 
   Case₂          : δ ⊢ e ⇓ inl v
                  → Hole
-                 -- → (Γ , T₂) ⊢ T
-                 -----------------
+                 → (Γ , T₂) ⊢ T
+                 ------------------
                  → Frame T₁ T
  
   Case₃          : δ ⊢ e ⇓ inr v
-                 -- → (Γ , T₁) ⊢ T
+                 → (Γ , T₁) ⊢ T
                  → Hole
-                 -----------------
+                 ------------------
                  → Frame T₂ T
 \end{code}
 
@@ -361,25 +363,28 @@ data _⇾_ : State T → State T → Set where
   step-Inr₂      : ∀ {e : Γ ⊢ T₂} {stack : Stack Answer (T₁ ∣ T₂)} {p : δ ⊢ e ⇓ v} 
                    → (δ ⊢ (stack ∷ Inr₁ ◌) ↓ p) ⇾ (δ ⊢ stack ↓ INR p)
 
-  -- TODO: This is the part that doesn't work.
-  -- step-Case₁     : ∀ {e : Γ ⊢ (T₁ ∣ T₂)} {e₁ : (Γ , T₁) ⊢ T} {e₂ : (Γ , T₂) ⊢ T} {stack : Stack T }
-  --                  → (δ ⊢ stack ↑ (case e of e₁ ∣ e₂)) ⇾ (δ ⊢ (stack ∷ Case₁ ◌ e₁ e₂) ↑ e)
+  step-Case₁     : ∀ {e : Γ ⊢ (T₁ ∣ T₂)} {e₁ : (Γ , T₁) ⊢ T} {e₂ : (Γ , T₂) ⊢ T}
+                 → {stack : Stack Answer T}
+                 → (δ ⊢ stack ↑ (case e of e₁ ∣ e₂)) ⇾ (δ ⊢ (stack ∷ Case₁ ◌ e₁ e₂) ↑ e)
 
-  -- step-Case₂     : ∀ {e : Γ ⊢ (T₁ ∣ T₂)} {e₁ : (Γ , T₁) ⊢ T} {e₂ : (Γ , T₂) ⊢ T} {v : Value T₁}
-  --                  → {stack : Stack Answer _} {p : δ ⊢ e ⇓ inl v}
-  --                  → (δ ⊢ (stack ∷ Case₁ ◌ e₁ e₂) ↓ p) ⇾ ((δ , v) ⊢ (stack ∷ Case₂ p ◌) ↑ e₁)
+  step-Case₂     : ∀ {stack : Stack Answer T}
+                 → {p : δ ⊢ e ⇓ inl v}
+                 → (δ ⊢ (stack ∷ Case₁ ◌ e₁ e₂) ↓ p) ⇾ ((δ , v) ⊢ (stack ∷ Case₂ p ◌ e₂) ↑ e₁)
 
-  -- step-Case₃     : ∀ {v : Value T₁} {u : Value T} {p : δ ⊢ e ⇓ inl v} {p₁ : (δ , v) ⊢ e₁ ⇓ u}
-  --                  → {stack : Stack Answer T}
-  --                  → ((δ , v) ⊢ (stack ∷ Case₂ p ◌) ↓ p₁) ⇾ (δ ⊢ stack ↓ CASE₁ p p₁)
+  step-Case₃     : {v : Value T₁} {u : Value T}
+                 → {p : δ ⊢ e ⇓ inl v} {p₁ : (δ , v) ⊢ e₁ ⇓ u}
+                 → {stack : Stack Answer T}
+                 → ((δ , v) ⊢ (stack ∷ Case₂ p ◌ e₂) ↓ p₁) ⇾ (δ ⊢ stack ↓ CASE₁ {e₂ = e₂} p p₁)
 
-  -- step-Case₄     : ∀ {e : Γ ⊢ (T₁ ∣ T₂)} {e₁ : (Γ , T₁) ⊢ T} {e₂ : (Γ , T₂) ⊢ T} {v : Value T₂}
-  --                  → {stack : Stack Answer _} {p : δ ⊢ e ⇓ inr v}
-  --                  → (δ ⊢ (stack ∷ Case₁ ◌ e₁ e₂) ↓ p) ⇾ ((δ , v) ⊢ (stack ∷ Case₃ p ◌) ↑ e₂)
+  step-Case₄     : {v : Value T₂}
+                 → {p : δ ⊢ e ⇓ inr v}
+                 → {stack : Stack Answer T} 
+                 → (δ ⊢ (stack ∷ Case₁ ◌ e₁ e₂) ↓ p) ⇾ ((δ , v) ⊢ (stack ∷ Case₃ p e₁ ◌) ↑ e₂)
 
-  -- step-Case₅     : ∀ {v : Value T₁} {u : Value T} {p : δ ⊢ e ⇓ inr v} {p₂ : (δ , v) ⊢ e₂ ⇓ u}
-  --                  → {stack : Stack Answer _}
-  --                  → ((δ , v) ⊢ (stack ∷ Case₃ p ◌) ↓ p₂) ⇾ (δ ⊢ stack ↓ CASE₂ p p₂)
+  step-Case₅     : {v : Value T₁} {u : Value T}
+                 → {p : δ ⊢ e ⇓ inr v} {p₂ : (δ , v) ⊢ e₂ ⇓ u}
+                 → {stack : Stack Answer T}
+                 → ((δ , v) ⊢ (stack ∷ Case₃ p e₁ ◌) ↓ p₂) ⇾ (δ ⊢ stack ↓ CASE₂ {e₁ = e₁} p p₂)
 
 \end{code}
 
@@ -623,13 +628,32 @@ complete δ stack (inr e) (inr v) (INR p) =
 complete δ stack (case e of e₁ ∣ e₂) v (CASE₁ p p₁) =
   proof
     δ ⊢ stack ↑ (case e of e₁ ∣ e₂)
-  -- ⇾⟨ {!step-Case₁!} ⟩
-  --   {!!}
-  ↠⟨ {!!} ⟩
+  ⇾⟨ step-Case₁ ⟩
+    δ ⊢ stack ∷ Case₁ ◌ e₁ e₂ ↑ e
+  ↠⟨ complete δ (stack ∷ Case₁ ◌ e₁ e₂) e (inl _) p ⟩
+    δ ⊢ stack ∷ Case₁ ◌ e₁ e₂ ↓ p
+  ⇾⟨ step-Case₂ ⟩
+    (δ , _) ⊢ stack ∷ Case₂ p ◌ e₂ ↑ e₁
+  ↠⟨ complete (δ , _) (stack ∷ Case₂ p ◌ e₂) e₁ v p₁ ⟩
+    (δ , _) ⊢ stack ∷ Case₂ p ◌ e₂ ↓ p₁
+  ⇾⟨ step-Case₃ ⟩
     δ ⊢ stack ↓ CASE₁ p p₁
   ∎
 
-complete δ stack (case e of e₁ ∣ e₂) v (CASE₂ p p₂) = {!!}
+complete δ stack (case e of e₁ ∣ e₂) v (CASE₂ p p₂) =
+  proof
+    δ ⊢ stack ↑ (case e of e₁ ∣ e₂)
+  ⇾⟨ step-Case₁ ⟩
+    δ ⊢ stack ∷ Case₁ ◌ e₁ e₂ ↑ e
+  ↠⟨ complete δ (stack ∷ Case₁ ◌ e₁ e₂) e (inr _) p ⟩
+    δ ⊢ stack ∷ Case₁ ◌ e₁ e₂ ↓ p
+  ⇾⟨ step-Case₄ ⟩
+    (δ , _) ⊢ stack ∷ Case₃ p e₁ ◌ ↑ e₂
+  ↠⟨ complete (δ , _) (stack ∷ Case₃ p e₁ ◌) e₂ v p₂ ⟩
+    (δ , _) ⊢ stack ∷ Case₃ p e₁ ◌ ↓ p₂
+  ⇾⟨ step-Case₅ ⟩
+    δ ⊢ stack ↓ CASE₂ p p₂
+  ∎
 \end{code}
 
 --------------------------------------------------------------------------------
@@ -665,12 +689,13 @@ example0 = step step-⊕ (step step-Num (step step-⊕₁ (step step-Num (step s
 
 Non-Terminating Programs
 \begin{code}
-
 module NonTerminatingPrograms where
+
   -- letrec fix x = fix x in fix ()
   Fix : {T : Type} → ∅ ⊢ (Unit ⇒ T)
   Fix = (LetRec (Var (S Z) · Var Z)) · ⟨⟩
 
+  {-
   example₀ : (∅ ⊢ [] ↑ Fix) ↠ (∅ ⊢ [] ↓ FUN ⟨⟩)
   example₀ = step step-App
           (step step-LetRec
@@ -683,23 +708,32 @@ module NonTerminatingPrograms where
           (step step-Var
           (step step-RecApp₂ (step step-App (step step-Var (step step-RecApp₁ (step step-Var {!!})))))))))))))
           -- ad infinitum ...
-
+  -}
+  
   -- letrec until p s z = if p z then z else until p s (s z)
   Until : {δ : Context} → {T : Type} → δ ⊢ ((T ⇒ Bool) ⇒ ((T ⇒ T) ⇒ (T ⇒ T)))
-  Until = LetRec (ƛ (ƛ (If (Var 𝟚 · Var 𝟘) Then Var 𝟘 Else (((Var 𝟛 · Var 𝟚) · Var 𝟙) · (Var 𝟙 · Var 𝟘)))))
-
+  Until = ƛ (ƛ (LetRec (If (Var 𝟛 · Var 𝟘) Then Var 𝟘 Else (Var 𝟙 · (Var 𝟚 · Var 𝟘)))))
+    {-
+    LetRec (ƛ (ƛ
+    (If (Var 𝟚 · Var 𝟘)
+      Then Var 𝟘
+      Else (Var 𝟛 · Var 𝟚 · Var 𝟙 · (Var 𝟙 · Var 𝟘)))))-}
+  
   -- until ( _== 0) ( _- 1)
   example₁ : ∅ ⊢ (Nat ⇒ Nat)
-  example₁ = Until · (ƛ (Var 𝟘 ≈ Num 0)) · (ƛ (Var 𝟘 ⊝ Num 1))
+  example₁ = (Until · (ƛ (Var 𝟘 ≈ Num 0))) · (ƛ (Var 𝟘 ⊝ Num 1))
 
-  prop₁ : ∅ ⊢ (example₁ · Num 1) ⇓ Nat 0
+  prop₁ : (∅ ⊢ [] ↑ (example₁ · Num 0)) ↠ (∅ ⊢ [] ↓ NUM 0)
   prop₁ = {!!}
+
   -- until ( _== 0) ( _+ 1)
   example₂ : ∅ ⊢ (Nat ⇒ Nat)
   example₂ = Until · (ƛ (Var 𝟘 ≈ Num 0)) · (ƛ (Var 𝟘 ⊕ Num 1))
 
+  {-
   -- Is this even provable?
   prop₂ : ∀ {n : ℕ} → (∅ ⊢ (example₂ · Num 1) ⇓ Nat n) → ⊥
   prop₂ (APP d d₁ d₂) = {!!}
   prop₂ (RECAPP d d₁ d₂) = {!!}
+  -}
 \end{code}
