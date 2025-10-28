@@ -5,11 +5,8 @@
 \begin{code}
 module Milli where
 
-open import Data.Bool renaming (Bool to 𝔹) using ()
+open import Data.Bool renaming (Bool to 𝔹) hiding (T; true; false)
 open import Data.Nat using (ℕ)
-import Relation.Binary.PropositionalEquality as Eq
-open Eq using (_≡_; _≢_; refl; trans; sym; cong; cong-app; subst)
-open import Data.Empty using (⊥) renaming (⊥-elim to ex-falso)
 \end{code}
 
 --------------------------------------------------------------------------------
@@ -34,7 +31,7 @@ infixr 20 _⇒_
 
 Importing contexts and environments
 \begin{code}
-open import Context Type
+open import Context Type public
 \end{code}
 
 
@@ -87,7 +84,7 @@ mutual
     -- Recursive closures as values
     RecClosure : Environment Γ → (Γ , T₁ ⇒ T₂ , T₁) ⊢ T₂ → Value (T₁ ⇒ T₂)
 
-  open import Environment Type Value
+  open import Environment Type Value public
 \end{code}
 
 
@@ -107,6 +104,8 @@ true = (Bool Data.Bool.true)
 
 false : Value Bool
 false = (Bool Data.Bool.false)
+
+infixl 6 _+_ _∸_
 
 _+_ : Value Nat → Value Nat → Value Nat
 Nat a + Nat b = Nat (a Data.Nat.+ b)
@@ -147,7 +146,13 @@ data _⊢_⇓_ : Environment Γ → Γ ⊢ T → Value T → Set where
            → δ ⊢ e₂ ⇓ v₂
            → ((δ' , (RecClosure δ' e) , v₂) ⊢ e ⇓ v)
            → δ ⊢ (e₁ · e₂) ⇓ v
-  TUPLE  : δ ⊢ e₁ ⇓ v₁ → δ ⊢ e₂ ⇓ v₂ → δ ⊢ (e₁ , e₂) ⇓ (v₁ , v₂)
+
+  TUPLE  : ∀ {e₁ : Γ ⊢ T₁} {e₂ : Γ ⊢ T₂}
+         → δ ⊢ e₁ ⇓ v₁
+         → δ ⊢ e₂ ⇓ v₂
+         -------------
+         → δ ⊢ (e₁ , e₂) ⇓ (v₁ , v₂)
+
   FST    : δ ⊢ e₁ ⇓ (v₁ , v₂) → δ ⊢ fst e₁ ⇓ v₁
   SND    : δ ⊢ e₁ ⇓ (v₁ , v₂) → δ ⊢ snd e₁ ⇓ v₂
 
@@ -689,11 +694,15 @@ example0 = step step-⊕ (step step-Num (step step-⊕₁ (step step-Num (step s
 
 Non-Terminating Programs
 \begin{code}
-module NonTerminatingPrograms where
-
+module NonTerminatingPrograms where 
   -- letrec fix x = fix x in fix ()
   Fix : {T : Type} → ∅ ⊢ (Unit ⇒ T)
   Fix = (LetRec (Var (S Z) · Var Z)) · ⟨⟩
+
+  -- complete : ∀ (δ : Environment Γ) (stack : Stack Answer T) (e : Γ ⊢ T) (v : Value T) →
+  -- (p : δ ⊢ e ⇓ v) → (δ ⊢ stack ↑ e) ↠ (δ ⊢ stack ↓ p)
+
+  -- complete' : ∀ (δ : Environment Γ) (stack : Stack Answer T) (e : Γ ⊢ T) (v : Value T) →
 
   {-
   example₀ : (∅ ⊢ [] ↑ Fix) ↠ (∅ ⊢ [] ↓ FUN ⟨⟩)
@@ -713,23 +722,28 @@ module NonTerminatingPrograms where
   -- letrec until p s z = if p z then z else until p s (s z)
   Until : {δ : Context} → {T : Type} → δ ⊢ ((T ⇒ Bool) ⇒ ((T ⇒ T) ⇒ (T ⇒ T)))
   Until = ƛ (ƛ (LetRec (If (Var 𝟛 · Var 𝟘) Then Var 𝟘 Else (Var 𝟙 · (Var 𝟚 · Var 𝟘)))))
-    {-
-    LetRec (ƛ (ƛ
-    (If (Var 𝟚 · Var 𝟘)
-      Then Var 𝟘
-      Else (Var 𝟛 · Var 𝟚 · Var 𝟙 · (Var 𝟙 · Var 𝟘)))))-}
+    {- LetRec (ƛ (ƛ (If (Var 𝟚 · Var 𝟘)
+         Then Var 𝟘
+        Else (Var 𝟛 · Var 𝟚 · Var 𝟙 · (Var 𝟙 · Var 𝟘)))))-}
   
   -- until ( _== 0) ( _- 1)
   example₁ : ∅ ⊢ (Nat ⇒ Nat)
   example₁ = (Until · (ƛ (Var 𝟘 ≈ Num 0))) · (ƛ (Var 𝟘 ⊝ Num 1))
 
-  prop₁ : (∅ ⊢ [] ↑ (example₁ · Num 0)) ↠ (∅ ⊢ [] ↓ NUM 0)
-  prop₁ = {!!}
-
+  {-
+  _ : ∃[ p ] (eval 100 ∅ (example₁ · Num 5) ≡ just ⟪ Nat 0 , p ⟫)
+  _ = ⟪ _ , refl ⟫
+  -}
+  
   -- until ( _== 0) ( _+ 1)
   example₂ : ∅ ⊢ (Nat ⇒ Nat)
   example₂ = Until · (ƛ (Var 𝟘 ≈ Num 0)) · (ƛ (Var 𝟘 ⊕ Num 1))
 
+  {-
+  _ : eval 100 ∅ (example₂ · Num 1) ≡ nothing
+  _ = refl
+  -}
+  
   {-
   -- Is this even provable?
   prop₂ : ∀ {n : ℕ} → (∅ ⊢ (example₂ · Num 1) ⇓ Nat n) → ⊥
