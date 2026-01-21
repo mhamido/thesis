@@ -1,8 +1,8 @@
 {-# OPTIONS --safe #-}
+
 module Context (Type : Set) where
-
+open import Data.Bool using (_∧_; true; false) renaming (Bool to 𝔹)
 open import Data.Nat using (ℕ; zero; suc; s≤s; z≤n) renaming (_<_ to _≺_; _≤?_ to _≼?_; _+_ to _N+_)
-
 infixl 5 _,_
 
 data Context : Set where

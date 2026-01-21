@@ -3,7 +3,6 @@ Mini2, a minuscule subset of F# featuring exceptions.
 %------------------------------------------------------------------------------
 
 \begin{code}
--- {-# OPTIONS --safe --without-K #-}
 module STLC.Mini2 where
 
 open import Data.Empty using (⊥) renaming (⊥-elim to ex-falso)
@@ -49,29 +48,30 @@ is an element of ⊨ A.
 \begin{code}
 open import Context Type public
 
-mutual
-  ⊨ : Type → Set
-  ⊨ 𝙱𝚘𝚘𝚕     = 𝔹
-  ⊨ 𝙽𝚊𝚝      = ℕ
-  ⊨ (a ⇒ b)  = Closure a b
+record Closure (T₂ T₂ : Type) : Set
+data _⊢_ : Context → Type → Set
 
-  record Closure (T₁ T₂ : Type) : Set where
-    inductive 
-    constructor closure
-    field
-      {Γᶜ} : Context
-      δᶜ : Environment Γᶜ
-      eᶜ : (Γᶜ , T₁) ⊢ T₂
+⊨ : Type → Set
+⊨ 𝙱𝚘𝚘𝚕     = 𝔹
+⊨ 𝙽𝚊𝚝      = ℕ
+⊨ (a ⇒ b)  = Closure a b
 
-  open import Environment Type ⊨ public
+open import Environment Type ⊨ public
+
+record Closure T₁ T₂ where
+  inductive 
+  constructor ⟨_,_⟩
+  field
+    {Γᶜ} : Context
+    δᶜ : Environment Γᶜ
+    eᶜ : (Γᶜ , T₁) ⊢ T₂
 \end{code}
 
 \begin{code}
-  private
-    variable
-      A B T T₁ T₂ Answer : Type
-      Γ : Context
-      δ : Environment Γ
+private variable
+  A B T T₁ T₂ Answer : Type
+  Γ Δ : Context
+  δ : Environment Γ
 \end{code}
 
 %------------------------------------------------------------------------------
@@ -80,17 +80,17 @@ Static semantics (Church-style).
 
 <<expressions>>
 \begin{code}
-  data _⊢_ : Context → Type → Set where
-    `_            : ⊨ A → Γ ⊢ A
-    𝚒𝚏_𝚝𝚑𝚎𝚗_𝚎𝚕𝚜𝚎_ : Γ ⊢ 𝙱𝚘𝚘𝚕 → Γ ⊢ A   → Γ ⊢ A → Γ ⊢ A
-    _⊞_           : Γ ⊢ 𝙽𝚊𝚝  → Γ ⊢ 𝙽𝚊𝚝 → Γ ⊢ 𝙽𝚊𝚝
-    𝚝𝚎𝚜𝚝          : Γ ⊢ 𝙽𝚊𝚝  → Γ ⊢ 𝙱𝚘𝚘𝚕
-    Var           : A ∈ Γ    → Γ ⊢ A
-    _·_           : Γ ⊢ (A ⇒ B) → Γ ⊢ A → Γ ⊢ B
-    ƛ_            : (Γ , A) ⊢ B → Γ ⊢ (A ⇒ B)
-    -- Let_In_       : Γ ⊢ A → (Γ , A) ⊢ B → Γ ⊢ B
-    -- LetRec_       : (Γ , T₁ ⇒ T₂ , T₁) ⊢ T₂ → Γ ⊢ (T₁ ⇒ T₂)
-  infixl 10 _·_
+data _⊢_ where
+  `_ : ⊨ A → Γ ⊢ A
+  _⊞_ : Γ ⊢ 𝙽𝚊𝚝 → Γ ⊢ 𝙽𝚊𝚝 → Γ ⊢ 𝙽𝚊𝚝
+  𝚝𝚎𝚜𝚝 : Γ ⊢ 𝙽𝚊𝚝 → Γ ⊢ 𝙱𝚘𝚘𝚕
+  𝚒𝚏_𝚝𝚑𝚎𝚗_𝚎𝚕𝚜𝚎_ : Γ ⊢ 𝙱𝚘𝚘𝚕 → Γ ⊢ A → Γ ⊢ A → Γ ⊢ A
+  
+  Var : A ∈ Γ → Γ ⊢ A
+  _·_ : Γ ⊢ (A ⇒ B) → Γ ⊢ A → Γ ⊢ B
+  ƛ_  : (Γ , A) ⊢ B → Γ ⊢ (A ⇒ B)
+  -- LetRec_       : (Γ , T₁ ⇒ T₂ , T₁) ⊢ T₂ → Γ ⊢ (T₁ ⇒ T₂)
+infixl 10 _·_
 
 private variable
   e e₁ e₂ e₃ : Γ ⊢ T
@@ -131,16 +131,18 @@ data _⊢_⇓_ : Environment Γ → Γ ⊢ A → ⊨ A → Set where
     ---------------------------
     → δ ⊢ (Var v) ⇓ lookupₑ δ v
 
-  fun : (e₁ : (Γ , A) ⊢ B)
-    -----------------
-    → δ ⊢ (ƛ e₁) ⇓ closure δ e₁
+  fun : (e : (Γ , A) ⊢ B) 
+      → δ ⊢ (ƛ e₁) ⇓ ⟨ δ , e₁ ⟩
 
   app 
-    : ∀ {Γᶜ} {δᶜ : Environment Γᶜ} {eᶜ} {x : ⊨ A}
-    → δ ⊢ e₁ ⇓ closure {T₂ = B} δᶜ eᶜ
-    → δ ⊢ e₂ ⇓ x
-    → (δᶜ , x) ⊢ eᶜ ⇓ v
-    → δ ⊢ (e₁ · e₂) ⇓ v
+    : ∀ {e₁ : Γ ⊢ (A ⇒ B)} {e₂ : Γ ⊢ A} 
+      {Γᶜ} {δᶜ} {eᶜ : (Γᶜ , A) ⊢ B}
+      {v₁ : _} {v₂ : _}
+    → δ ⊢ e₁         ⇓ ⟨ δᶜ , eᶜ ⟩
+    → δ ⊢ e₂         ⇓ v₁
+    → (δᶜ , v₁) ⊢ eᶜ ⇓ v₂
+    ---------------------
+    → δ ⊢ (e₁ · e₂) ⇓ v₂
 \end{code}
 
 The first constructor embeds values into terms.
@@ -160,14 +162,21 @@ A small-step machine.
 data Frame : Type → Type → Set where
   _𝚎𝚕𝚜𝚎_  : Γ ⊢ A → Γ ⊢ A → Frame A 𝙱𝚘𝚘𝚕
   _⊞₀_    : Hole → Γ ⊢ 𝙽𝚊𝚝 → Frame 𝙽𝚊𝚝 𝙽𝚊𝚝
-  _⊞₁_    : δ ⊢ e ⇓ n → Hole → Frame 𝙽𝚊𝚝 𝙽𝚊𝚝
-  
+  _⊞₁_    : ⊨ 𝙽𝚊𝚝 → Hole → Frame 𝙽𝚊𝚝 𝙽𝚊𝚝
   𝚝𝚎𝚜𝚝    : Hole → Frame 𝙱𝚘𝚘𝚕 𝙽𝚊𝚝
-  app₁    : Hole → Γ ⊢ A → Frame B (A ⇒ B)
-  app₂    : ∀ {e₁ : Γ ⊢ (A ⇒ B) } {v₁ : ⊨ (A ⇒ B)} 
-          → δ ⊢ e₁ ⇓ v₁ → Hole → Frame B A
-  app₃    : ∀ {e₁ :  Γ ⊢ (A ⇒ B) } {e₂ : Γ ⊢ A} {v₁ : ⊨ (A ⇒ B)} {v₂ : ⊨ A}
-          → δ ⊢ e₁ ⇓ v₁ → δ ⊢ e₂ ⇓ v₂ → Hole → Frame B B
+  
+  app₁    : Hole 
+          → Γ ⊢ A
+          → Frame B (A ⇒ B)
+
+  app₂    : ⊨ (A ⇒ B)
+          → Hole 
+          → Frame B A
+
+  app₃    : ⊨ (A ⇒ B)
+          → ⊨ A 
+          → Hole
+          → Frame B B
 
 \end{code}
 
@@ -187,21 +196,11 @@ tree” of type ⊢ Answer with a hole of type ⊢ A.
 The machine is in one of three modes:
 ●  _↑_: call mode (going up the tree), an expression is evaluated;
 ●  _↓_: return mode (going down the tree), a value is returned.
-% ●  _☇: exception mode (unravelling the stack, searching for a handler).
 
-\begin{code} -- todo: change this to include context & env like how its done in milli
+\begin{code}
 data State (Answer : Type) : Set where
-  -- _⊢_↑_ : (δ : Environment Γ) → Stack Answer A → Γ ⊢ A → State Answer
-  -- _⊢_↓_ : (δ : Environment Γ) → Stack Answer A → {e : Γ ⊢ A} {v : ⊨ A} → δ ⊢ e ⇓ v → State Answer
-  _⊢_↓_ : {Γ : Context} → (δ : Environment Γ) 
-        → Stack Answer T 
-        → {e : Γ ⊢ T} 
-        → δ ⊢ e ⇓ v → State Answer
-
-  _⊢_↑_ : (δ : Environment Γ) 
-        → Stack Answer T 
-        → Γ ⊢ T 
-        → State Answer
+  _⊢_↑_ : (δ : Environment Γ) → Stack Answer A → Γ ⊢ A → State Answer
+  _⊢_↓_ : (δ : Environment Γ) → Stack Answer A →   ⊨ A → State Answer
 \end{code}
 
 \begin{code}
@@ -212,52 +211,35 @@ private
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-\begin{code}
-postulate 
-  step : State Answer → State Answer
--- step (δ ⊢ stack ↑ ` v)                    = δ ⊢ stack ↓ (` v)
--- step (δ ⊢ stack ↑ (𝚒𝚏 v 𝚝𝚑𝚎𝚗 v₁ 𝚎𝚕𝚜𝚎 v₂)) = δ ⊢ stack ∷ v₁ 𝚎𝚕𝚜𝚎 v₂ ↑ v
--- step (δ ⊢ stack ↑ (e₁ ⊞ e₂))              = δ ⊢ stack ∷ ◌ ⊞₀ e₂ ↑ e₁
--- step (δ ⊢ stack ↑ 𝚝𝚎𝚜𝚝 e)                 = δ ⊢ stack ∷ 𝚝𝚎𝚜𝚝 ◌ ↑ e
--- step (δ ⊢ stack ↑ Var x)                  = δ ⊢ stack ↓ var x
--- step (δ ⊢ stack ↑ (e₁ · e₂))              = δ ⊢ stack ∷ app₁ ◌ e₂ ↑ e₁
--- step (δ ⊢ stack ↑ (ƛ e))                  = δ ⊢ stack ↓ fun e
+NOTE: We cannot describe the step relation functionally. Both `Frame` and the Stack constructors bring in arbitrary contexts.
+When modeling these as constructors in a datatype, this is dealt with via unification. 
+If we fill a hole expecting a `Γ₁ ⊢ A` with an expression of type `Γ ⊢ A`, then the type checker adds a constraint `Γ ~ Γ₁`.
+See [Simplified.lagda] for the relation described as a `data` type.
+
+\begin{code} 
+-- step : State Answer → State Answer
+-- step (δ ⊢ stack ↑     ` x)             = δ ⊢ stack ↓ x
+-- step (δ ⊢ stack ↑ e₁ ⊞ e₂)             = δ ⊢ stack ∷ ◌ ⊞₀ e₂ ↑ e₁
+-- step (δ ⊢ stack ↑ 𝚝𝚎𝚜𝚝  e)             = δ ⊢ stack ∷ 𝚝𝚎𝚜𝚝 ◌ ↑ e
+-- step (δ ⊢ stack ↑ 𝚒𝚏 e 𝚝𝚑𝚎𝚗 e₁ 𝚎𝚕𝚜𝚎 e₂) = δ ⊢ stack ∷ e₁ 𝚎𝚕𝚜𝚎 e₂ ↑ e
+-- step (δ ⊢ stack ↑               Var x) = δ ⊢ stack ↓ lookupₑ δ x
+-- step (δ ⊢ stack ↑ (e₁ · e₂))           = δ ⊢ stack ∷ app₁ ◌ e₂ ↑ e₁
+-- step (δ ⊢ stack ↑ (ƛ e))               = δ ⊢ stack ↓ ⟨ δ , e ⟩
 
 -- step (δ ⊢ [] ↓ v) = δ ⊢ [] ↓ v
--- step (δ ⊢ stack ∷ x 𝚎𝚕𝚜𝚎 x₁ ↓ v) = δ ⊢ stack ∷ x 𝚎𝚕𝚜𝚎 x₁ ↓ v
--- step (δ ⊢ stack ∷ ◌ ⊞₀ x₁ ↓ v) = {! δ ⊢ stack ↓ v !}
--- step (δ ⊢ stack ∷ x ⊞₁ x₁ ↓ v) = {!   !}
--- step (δ ⊢ stack ∷ 𝚝𝚎𝚜𝚝 x ↓ v) = δ ⊢ stack ↓ 𝚝𝚎𝚜𝚝 v
--- step (δ ⊢ stack ∷ app₁ x x₁ ↓ v) = {!   !}
--- step (δ ⊢ stack ∷ app₂ x x₁ ↓ v) = {!   !}
--- step (δ ⊢ stack ∷ app₃ x x₁ x₂ ↓ v) = {!   !}
--- step (δ ⊢ stack ∷ e₁ 𝚎𝚕𝚜𝚎 e₂ ↓ v) = {!   !}
--- step (δ ⊢ stack ∷ ◌ ⊞₀ e₁ ↓ v) = δ ⊢ stack ∷ {!   !} ↑ {! e₁  !}
-
--- step (stack ↑ ` v)                   = stack ↓ v
--- step (stack ↑ 𝚒𝚏 e₀ 𝚝𝚑𝚎𝚗 e₁ 𝚎𝚕𝚜𝚎 e₂) = stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂) ↑ e₀
--- step (stack ↑ e₀ ⊞ e₁)               = stack ∷ (◌ ⊞₀ e₁) ↑ e₀
--- step (stack ↑ 𝚝𝚎𝚜𝚝 e)                = stack ∷ 𝚝𝚎𝚜𝚝 ◌ ↑ e
--- step (stack ↑ Var n)                 = stack ↓ {!   !} -- need someway to return `n`!
--- step (stack ↑ (f · x))               = stack ∷ App₁ ◌ x ↑ f
--- step (stack ↑ (ƛ e))                 = stack ↓ closure {!   !} e
-
--- step ([] ↓ v) = [] ↓ v
-
--- step (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂) ↓ v) = stack ↑ (if v then e₁ else e₂)
--- step (stack ∷ (◌ ⊞₀ e₁)    ↓ v) = stack ∷ (v ⊞₁ ◌) ↑ e₁
--- step (stack ∷ (n₀ ⊞₁ ◌)    ↓ v) = stack ↓ n₀ + v
--- step (stack ∷ 𝚝𝚎𝚜𝚝 ◌       ↓ v) = stack ↓ test v
-
--- step (stack ∷ App₁ ◌ x ↓ f) = stack ∷ App₂ {! f !} ◌ ↑ x
--- step (stack ∷ App₂ f ◌ ↓ x) = stack ∷ App₃ {!   !} {! x  !} ◌ ↑ {! f  !}
--- step (stack ∷ App₃ f x ◌ ↓ v) = {! stack  !}
+-- step (δ ⊢ stack ∷ e₁ 𝚎𝚕𝚜𝚎 e₂ ↓ v) = δ ⊢ stack ↑ (if v then e₁ else e₂)
+-- step (δ ⊢ stack ∷ ◌ ⊞₀ e₂ ↓ v₁) = δ ⊢ stack ∷ v₁ ⊞₁ ◌ ↑ e₂
+-- step (δ ⊢ stack ∷ v₁ ⊞₁ ◌ ↓ v₂) = δ ⊢ stack ↓ (v₁ + v₂)
+-- step (δ ⊢ stack ∷ 𝚝𝚎𝚜𝚝 ◌ ↓ v) = δ ⊢ stack ↓ test v
+-- step (δ ⊢ stack ∷ app₁ ◌ e₂ ↓ v₁) = δ ⊢ stack ∷ app₂ v₁ ◌ ↑ e₂
+-- step (δ ⊢ stack ∷ app₂ ⟨ δᶜ , eᶜ ⟩ ◌ ↓ v₂) = (δᶜ , v₂) ⊢ stack ∷ app₃ ⟨ δᶜ , eᶜ ⟩ v₂ ◌ ↑ eᶜ
+-- step (δ ⊢ stack ∷ app₃ v₁ v₂ ◌ ↓ v₃) = δ ⊢ stack ↓ v₃
 \end{code}
 
 \begin{code}
-steps : ℕ → State Answer → State Answer
-steps (zero)   s = s
-steps (succ n) s = step (steps n s)
+-- steps : ℕ → State Answer → State Answer
+-- steps (zero)   s = s
+-- steps (succ n) s = step (steps n s)
 
 deterministic : ∀ {T : Type} {e : Γ ⊢ T} {v₁ v₂ : ⊨ T} → δ ⊢ e ⇓ v₁ → δ ⊢ e ⇓ v₂ → v₁ ≡ v₂
 deterministic (` _) (` _) = reflexive
@@ -277,37 +259,29 @@ deterministic (fun e₁) (fun e₂) = reflexive
 deterministic (app f₁ x₁ v₁) (app f₂ x₂ v₂) with deterministic f₁ f₂ | deterministic x₁ x₂
 ... | reflexive | reflexive = deterministic v₁ v₂
 
--- apply : Closure A B → ⊨ A → ⊨ B
--- apply (closure δᶜ eᶜ) x = {!   !}
+{-# TERMINATING #-} 
+-- NOTE: We only need this because Agda's termination checker is not convinced that the call to
+-- `total {δ = δᶜ , v₂} eᶜ` is smaller than `total (e₁ · e₂)`.
 
 total : ∀ {T : Type} (e : Γ ⊢ T) → ∃ (λ v → δ ⊢ e ⇓ v)
 total (` x) = x ﹐ ` x 
-total (𝚒𝚏 e 𝚝𝚑𝚎𝚗 e₁ 𝚎𝚕𝚜𝚎 e₂) = {!   !} ﹐ {!   !} !}
-tal (e ⊞ e₁) = {!   !}
-total (𝚝𝚎𝚜𝚝 e) = {!   !}
-total (Var x) = {!   !}
-total (e · e₁) = {!   !}
-total (ƛ e) = {!   !}
 
--- total (` x) = x ﹐ ` x
+total (𝚒𝚏 e 𝚝𝚑𝚎𝚗 e₁ 𝚎𝚕𝚜𝚎 e₂) with total e | total e₁ | total e₂
+... | false ﹐ p₁ | _      | v ﹐ p₂ = v ﹐ 𝚒𝚏-𝚎𝚕𝚜𝚎 p₁ e₁ p₂
+... | true  ﹐ p₁ | v ﹐ p₂ | _      = v ﹐ 𝚒𝚏-𝚝𝚑𝚎𝚗 p₁ p₂ e₂
 
--- total (𝚝𝚎𝚜𝚝 e) with total e
--- ... | v ﹐ p = test v ﹐ 𝚝𝚎𝚜𝚝 p
+total (e₁ ⊞ e₂) with total e₁ | total e₂
+... | v₁ ﹐ p₁ | v₂ ﹐ p₂ = v₁ + v₂ ﹐ p₁ ⊞ p₂
 
--- total (𝚒𝚏 e₁ 𝚝𝚑𝚎𝚗 e₂ 𝚎𝚕𝚜𝚎 e₃) with total e₁ | total e₂ | total e₃
--- ... | false ﹐ p₁ | _ | v ﹐ p₂ = v ﹐ (𝚒𝚏-𝚎𝚕𝚜𝚎 p₁ e₂ p₂)
--- ... | true  ﹐ p₁ | v ﹐ p₂ | _ = v ﹐ (𝚒𝚏-𝚝𝚑𝚎𝚗 p₁ p₂ e₃)
+total (𝚝𝚎𝚜𝚝 e) with total e
+... | v ﹐ p = test v ﹐ 𝚝𝚎𝚜𝚝 p
 
--- total (e₁ ⊞ e₂) with total e₁ | total e₂
--- ... | v₁ ﹐ p₁ | v₂ ﹐ p₂ = v₁ + v₂ ﹐ p₁ ⊞ p₂
+total {δ = δ} (Var x) = lookupₑ δ x ﹐ var x
+total {δ = δ} (ƛ e) = ⟨ δ , e ⟩ ﹐ fun e
 
--- total {δ = δ} (Var x) = lookupₑ δ x ﹐ var x
-
--- total (ƛ e) = closure _ e ﹐ fun e
--- total (f · x) with total f | total x 
--- ... | closure δᶜ eᶜ ﹐ p₁ | x ﹐ p₂ = {!   !} ﹐ (app p₁ p₂ {!   !})
-
-
+total (e₁ · e₂) with total e₁ | total e₂ 
+... | ⟨ δᶜ , eᶜ ⟩ ﹐ p₁ | v₂ ﹐ p₂ with total {δ = δᶜ , v₂} eᶜ
+... | v₃ ﹐ p₃ = v₃ ﹐ app p₁ p₂ p₃
 \end{code}
 
 
