@@ -157,6 +157,11 @@ data _⊢_⇓_ : Environment Γ → Γ ⊢ T → ⊨ T → Set where
     -- `_ : ∀ (v : ⊨ T) → (` v) ⇓ v
     `_ : ∀ {Γ} {δ : Environment Γ} (v : ⊨ T) 
         → δ ⊢ (` v) ⇓ v
+
+    VAR : {x : T ∈ Γ}
+        --------------------------
+        → δ ⊢ Var x ⇓ lookupₑ δ x
+    
     ADD : {e₁ e₂ : Γ ⊢ Nat}
         → δ ⊢ e₁ ⇓ n₁ 
         → δ ⊢ e₂ ⇓ n₂ 
