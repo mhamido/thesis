@@ -5,6 +5,7 @@ module STLC.Arith.WithLetBindings where
 open import Data.Bool renaming (Bool to 𝔹) hiding (T; if_then_else_)
 open import Data.Nat renaming (_+_ to infixl 46 _+_)
 open import Data.Product using (∃; ∃-syntax; proj₁; proj₂) renaming (_,_ to _،_)
+open import Relation.Binary.PropositionalEquality using (_≡_)
 
 infixl 146 _⊞₁_ _⊞₂_
 infix  120 _else_
@@ -137,6 +138,7 @@ data _∼>_ : State Γ Answer → State Γ Answer → Set where
     step-` : ∀ {v : ⊨ T} → δ ⊢ s ↑ (` v) ∼> δ ⊢ s ↓ v
     step-⊞₁ :       δ ⊢ s ↑ (e₁ ⊞ e₂)    ∼> δ ⊢ s ∷ ◌ ⊞₁ e₂ ↑ e₁
     step-⊞₂ :       δ ⊢ s ∷ ◌ ⊞₁ e₂ ↓ n₁ ∼> δ ⊢ s ∷ n₁ ⊞₂ ◌ ↑ e₂
+    step-Var : {x : T ∈ Γ} {δ : Environment Γ} → δ ⊢ s ↑ Var x ∼> δ ⊢ s ↓ lookupₑ δ x
     step-let : δ ⊢ s ↑ (Let e₁ In e₂) ∼> δ ⊢ s ∷ (Let₁ ◌ In e₂) ↑ e₁
     step-let₁ : {v₁ : ⊨ T₁} {e₂ : (Γ , T₁) ⊢ T₂}
         → δ ⊢ s ∷ (Let₁ ◌ In e₂) ↓ v₁ ∼> (δ , v₁) ⊢ s ∷ (Let₂ v₁ In ◌) ↑ e₂
@@ -158,7 +160,7 @@ data _⊢_⇓_ : Environment Γ → Γ ⊢ T → ⊨ T → Set where
     `_ : ∀ {Γ} {δ : Environment Γ} (v : ⊨ T) 
         → δ ⊢ (` v) ⇓ v
 
-    VAR : {x : T ∈ Γ}
+    VAR : {x : T ∈ Γ} {δ : Environment Γ}
         --------------------------
         → δ ⊢ Var x ⇓ lookupₑ δ x
     
@@ -238,6 +240,16 @@ Let-refine (` v) = LET (` _) (` v)
 ⪅-compositional r (s ∷ Let₁ ◌ In e₂) = ⪅-compositional (Let-ctx₁ r) s
 ⪅-compositional r (s ∷ Let₂ v₁ In ◌) = ⪅-compositional (Let-ctx₂ r) s
 
+strengthen : ∀ {a v : ⊨ T} → δ ⊢ (` a) ⇓ v → v ≡ a
+strengthen (` _) = _≡_.refl
+
+
+Var-refine : ∀ {x : T ∈ Γ} {δ : Environment Γ} {v : ⊨ T}
+    → (` (lookupₑ δ x)) ⪅ (Var x)
+    -- → δ ⊢ ` (lookupₑ δ x) ⇓ v → δ ⊢ Var x ⇓ v
+Var-refine ev with strengthen ev
+... | _≡_.refl = {! VAR  !}
+
 step` : {s s′ : State Γ Answer} → s ∼> s′ → expr s′ ⪅ expr s
 step` step-` ev = ev
 step` step-⊞₁ ev = ev 
@@ -245,6 +257,8 @@ step` step-⊞₂ ev = ev
 step` step-let ev = ev
 step` step-let₁ ev = ev
 step` (step-let₂ {s = s}) ev = ⪅-compositional Let-refine s ev
+step` (step-Var {s = s}) {v = v} ev = ⪅-compositional (λ x₁ → {! v  !}) s ev
+
 
 simulateᴿ : ∀ {s s′ : State Γ T} → s ∼>* s′ → expr s′ ⪅ expr s
 simulateᴿ (base)      q = q
