@@ -1,0 +1,211 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{anyt/global//global/global/global}
+    \entry{easyas123}{article}{}{}
+      \name{author}{1}{}{%
+        {{hash=5345326438d71d97c5ab18c94af1e6ca}{%
+           family={Hutton},
+           familyi={H\bibinitperiod},
+           given={Graham},
+           giveni={G\bibinitperiod}}}%
+      }
+      \strng{namehash}{5345326438d71d97c5ab18c94af1e6ca}
+      \strng{fullhash}{5345326438d71d97c5ab18c94af1e6ca}
+      \strng{fullhashraw}{5345326438d71d97c5ab18c94af1e6ca}
+      \strng{bibnamehash}{5345326438d71d97c5ab18c94af1e6ca}
+      \strng{authorbibnamehash}{5345326438d71d97c5ab18c94af1e6ca}
+      \strng{authornamehash}{5345326438d71d97c5ab18c94af1e6ca}
+      \strng{authorfullhash}{5345326438d71d97c5ab18c94af1e6ca}
+      \strng{authorfullhashraw}{5345326438d71d97c5ab18c94af1e6ca}
+      \field{labelalpha}{Hut23}
+      \field{sortinit}{H}
+      \field{sortinithash}{23a3aa7c24e56cfa16945d55545109b5}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Journal of Functional Programming}
+      \field{title}{Programming language semantics: It’s easy as 1,2,3}
+      \field{volume}{33}
+      \field{year}{2023}
+      \verb{urlraw}
+      \verb https://api.semanticscholar.org/CorpusID:247581669
+      \endverb
+      \verb{url}
+      \verb https://api.semanticscholar.org/CorpusID:247581669
+      \endverb
+    \endentry
+    \entry{calculatingexceptionalmachines}{incollection}{}{}
+      \name{author}{2}{}{%
+        {{hash=5345326438d71d97c5ab18c94af1e6ca}{%
+           family={Hutton},
+           familyi={H\bibinitperiod},
+           given={Graham},
+           giveni={G\bibinitperiod}}}%
+        {{hash=aeef8be467cb214afe0345c75049f556}{%
+           family={Wright},
+           familyi={W\bibinitperiod},
+           given={Joel},
+           giveni={J\bibinitperiod}}}%
+      }
+      \name{editor}{1}{}{%
+        {{hash=a52a0e5edd50e466eac48540697d2935}{%
+           family={Loidl},
+           familyi={L\bibinitperiod},
+           given={Hans-Wolfgang},
+           giveni={H\bibinithyphendelim W\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Intellect}%
+      }
+      \strng{namehash}{f01ea41c03db6142062732b1c238ca88}
+      \strng{fullhash}{f01ea41c03db6142062732b1c238ca88}
+      \strng{fullhashraw}{f01ea41c03db6142062732b1c238ca88}
+      \strng{bibnamehash}{f01ea41c03db6142062732b1c238ca88}
+      \strng{authorbibnamehash}{f01ea41c03db6142062732b1c238ca88}
+      \strng{authornamehash}{f01ea41c03db6142062732b1c238ca88}
+      \strng{authorfullhash}{f01ea41c03db6142062732b1c238ca88}
+      \strng{authorfullhashraw}{f01ea41c03db6142062732b1c238ca88}
+      \strng{editorbibnamehash}{a52a0e5edd50e466eac48540697d2935}
+      \strng{editornamehash}{a52a0e5edd50e466eac48540697d2935}
+      \strng{editorfullhash}{a52a0e5edd50e466eac48540697d2935}
+      \strng{editorfullhashraw}{a52a0e5edd50e466eac48540697d2935}
+      \field{labelalpha}{HW06}
+      \field{sortinit}{H}
+      \field{sortinithash}{23a3aa7c24e56cfa16945d55545109b5}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{{Trends in Functional Programming volume 5}}
+      \field{month}{2}
+      \field{note}{Selected papers from the Fifth Symposium on Trends in Functional Programming, Munich, November 2004.}
+      \field{title}{{Calculating an Exceptional Machine}}
+      \field{year}{2006}
+    \endentry
+    \entry{calculatingdependentlytypedcompilers}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=a8c22787c87f2bb70ea6834ae7f92ba1}{%
+           family={Pickard},
+           familyi={P\bibinitperiod},
+           given={Mitchell},
+           giveni={M\bibinitperiod}}}%
+        {{hash=5345326438d71d97c5ab18c94af1e6ca}{%
+           family={Hutton},
+           familyi={H\bibinitperiod},
+           given={Graham},
+           giveni={G\bibinitperiod}}}%
+      }
+      \strng{namehash}{f7007fa183df2ed97836436c7992f11c}
+      \strng{fullhash}{f7007fa183df2ed97836436c7992f11c}
+      \strng{fullhashraw}{f7007fa183df2ed97836436c7992f11c}
+      \strng{bibnamehash}{f7007fa183df2ed97836436c7992f11c}
+      \strng{authorbibnamehash}{f7007fa183df2ed97836436c7992f11c}
+      \strng{authornamehash}{f7007fa183df2ed97836436c7992f11c}
+      \strng{authorfullhash}{f7007fa183df2ed97836436c7992f11c}
+      \strng{authorfullhashraw}{f7007fa183df2ed97836436c7992f11c}
+      \field{labelalpha}{PH21}
+      \field{sortinit}{P}
+      \field{sortinithash}{ff3bcf24f47321b42cb156c2cc8a8422}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Proceedings of the ACM on Programming Languages}
+      \field{month}{8}
+      \field{number}{ICFP}
+      \field{title}{{Calculating Dependently-Typed Compilers}}
+      \field{volume}{5}
+      \field{year}{2021}
+    \endentry
+    \entry{tapl}{book}{}{}
+      \name{author}{1}{}{%
+        {{hash=7365a4e827c2dfa2c5af0c0ec4c18c27}{%
+           family={Pierce},
+           familyi={P\bibinitperiod},
+           given={Benjamin\bibnamedelima C.},
+           giveni={B\bibinitperiod\bibinitdelim C\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {The MIT Press}%
+      }
+      \strng{namehash}{7365a4e827c2dfa2c5af0c0ec4c18c27}
+      \strng{fullhash}{7365a4e827c2dfa2c5af0c0ec4c18c27}
+      \strng{fullhashraw}{7365a4e827c2dfa2c5af0c0ec4c18c27}
+      \strng{bibnamehash}{7365a4e827c2dfa2c5af0c0ec4c18c27}
+      \strng{authorbibnamehash}{7365a4e827c2dfa2c5af0c0ec4c18c27}
+      \strng{authornamehash}{7365a4e827c2dfa2c5af0c0ec4c18c27}
+      \strng{authorfullhash}{7365a4e827c2dfa2c5af0c0ec4c18c27}
+      \strng{authorfullhashraw}{7365a4e827c2dfa2c5af0c0ec4c18c27}
+      \field{labelalpha}{Pie02}
+      \field{sortinit}{P}
+      \field{sortinithash}{ff3bcf24f47321b42cb156c2cc8a8422}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{edition}{1st}
+      \field{isbn}{0262162091}
+      \field{title}{Types and Programming Languages}
+      \field{year}{2002}
+    \endentry
+    \entry{propositionsastypes}{article}{}{}
+      \name{author}{1}{}{%
+        {{hash=b4d861345944ddeeaf658a11c2f0f6a7}{%
+           family={Wadler},
+           familyi={W\bibinitperiod},
+           given={Philip},
+           giveni={P\bibinitperiod}}}%
+      }
+      \list{location}{1}{%
+        {New York, NY, USA}%
+      }
+      \list{publisher}{1}{%
+        {Association for Computing Machinery}%
+      }
+      \strng{namehash}{b4d861345944ddeeaf658a11c2f0f6a7}
+      \strng{fullhash}{b4d861345944ddeeaf658a11c2f0f6a7}
+      \strng{fullhashraw}{b4d861345944ddeeaf658a11c2f0f6a7}
+      \strng{bibnamehash}{b4d861345944ddeeaf658a11c2f0f6a7}
+      \strng{authorbibnamehash}{b4d861345944ddeeaf658a11c2f0f6a7}
+      \strng{authornamehash}{b4d861345944ddeeaf658a11c2f0f6a7}
+      \strng{authorfullhash}{b4d861345944ddeeaf658a11c2f0f6a7}
+      \strng{authorfullhashraw}{b4d861345944ddeeaf658a11c2f0f6a7}
+      \field{labelalpha}{Wad15}
+      \field{sortinit}{W}
+      \field{sortinithash}{4315d78024d0cea9b57a0c6f0e35ed0d}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{issn}{0001-0782}
+      \field{journaltitle}{Commun. ACM}
+      \field{month}{11}
+      \field{number}{12}
+      \field{title}{Propositions as types}
+      \field{volume}{58}
+      \field{year}{2015}
+      \field{pages}{75\bibrangedash 84}
+      \range{pages}{10}
+      \verb{doi}
+      \verb 10.1145/2699407
+      \endverb
+      \verb{urlraw}
+      \verb https://doi.org/10.1145/2699407
+      \endverb
+      \verb{url}
+      \verb https://doi.org/10.1145/2699407
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+
