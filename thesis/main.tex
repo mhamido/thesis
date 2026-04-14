@@ -232,10 +232,13 @@ The machine uses a stack of frames to track evaluation contexts.
 For each construct in the language, we define corresponding frames that represent the which subterm is being evaluated (the hole) and what context remains to be evaluated after it.
 
 \begin{minted}{agda}
+data Hole : Set where
+    ◌ : Hole
+
 data Frame : Type → Type → Set where
     _𝚎𝚕𝚜𝚎_   : ⊢ T → ⊢ T → Frame T Bool
-    _⊞₀_     : ⊨ Nat → ⊢ Nat → Frame Nat Nat 
-    _⊞₁_     : ⊨ Nat → Frame Nat Nat
+    _⊞₀_     : Hole → ⊢ Nat → Frame Nat Nat
+    _⊞₁_     : ⊨ Nat → Hole → Frame Nat Nat
 
 data Stack (Answer : Type) : Type → Set where
     []   : Stack Answer Answer
@@ -260,7 +263,7 @@ data _⇾_ : State Answer → State Answer → Set where
   step-⊞₂  : ⊢ stack ∷ (◌ ⊞₀ e₂) ↓ v₁ ⇾ ⊢ stack ∷ (v₁ ⊞₁ ◌) ↑ e₂
   step-⊞₃  : ⊢ stack ∷ (v₁ ⊞₁ ◌) ↓ v₂ ⇾ ⊢ stack ↓ (v₁ + v₂)
   step-𝚒𝚏  : ⊢ stack ↑ (if e then e₁ else e₂) ⇾ 
-             ⊢ (stack ∷ (e₁ 𝚎𝚛𝚕𝚜𝚎 e₂)) ↑ e
+             ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↑ e
   step-𝚝𝚑𝚎𝚗 : ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↓ true ⇾ ⊢ stack ↑ e₁
   step-𝚎𝚕𝚜𝚎 : ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↓ false ⇾ ⊢ stack ↑ e₂
 \end{minted}
@@ -296,7 +299,7 @@ To formalize the relationship between semantics, we prove equivalence theorems e
 
 \chapter{Exceptions}
 
-We extend the arithmetic language with exceptions. Unlike the base language where every expression terminates, we now introduce the possibility of runtime errors (e.g., division by zero). The fundamental change is that expressions may either evaluate to a value \textit{or} raise an exception.
+We extend the arithmetic language with exceptions. Unlike the base language where every expression terminates, we now introduce the possibility of runtime errors. The fundamental change is that expressions may either evaluate to a value \textit{or} raise an exception.
 
 \section{Syntax}
 
@@ -308,7 +311,6 @@ data Exception : Set where
 data ⊢_ where
     `_              : ⊨ T → ⊢ T
     _⊞_             : ⊢ Nat → ⊢ Nat → ⊢ Nat
-    _/_             : ⊢ Nat → ⊢ Nat → ⊢ Nat  -- Division (may raise)
     test            : ⊢ Nat → ⊢ Bool
     if_then_else_   : ⊢ Bool → ⊢ T → ⊢ T → ⊢ T
     -- Exception handling
@@ -316,7 +318,7 @@ data ⊢_ where
     try_catch_      : ⊢ T → (Exception → ⊢ T) → ⊢ T
 \end{minted}
 
-\section{Big-Step Semantics with Exceptions}
+\section{Big-Step Semantics}
 
 The big-step semantics is modified to account for both successful evaluation and exception propagation. 
 We introduce a disjoint union: terms evaluate to either a value or an exception.
@@ -326,23 +328,11 @@ data Result (T : Type) : Set where
     raise   : Exception → Result T
 
 data _⇓ʳ_ : ⊢ T → Result T → Set where
-    -- Values evaluate to themselves
     `_ : (v : ⊨ T) → (` v) ⇓ʳ return v
     
-    -- Arithmetic: propagate exceptions
     _⊞_ 
       : e₁ ⇓ʳ r₁ → e₂ ⇓ʳ r₂ 
       → (e₁ ⊞ e₂) ⇓ʳ (liftA2 (+) r₁ r₂)
-    
-    _/-err_ 
-      : e₁ ⇓ʳ return n₁ 
-      → e₂ ⇓ʳ return 0 
-      → (e₁ / e₂) ⇓ʳ raise err
-    
-    _/-ok_ 
-      : e₁ ⇓ʳ return n₁ 
-      → e₂ ⇓ʳ return n₂ 
-      → (e₁ / e₂) ⇓ʳ return (n₁ / n₂)
     
     throw-rule : throw ex ⇓ʳ raise ex
 
@@ -369,33 +359,30 @@ When an exception is raised, it propagates outward through the computation conte
 data _⇾_ : ⊢ T → ⊢ T → Set where
     ξ-⊞₁ : e₁ ⇾ e₁' → (e₁ ⊞ e₂) ⇾ (e₁' ⊞ e₂)
     ξ-⊞₂ : e₂ ⇾ e₂' → (` n₁ ⊞ e₂) ⇾ (` n₁ ⊞ e₂')
-    β-⊞ : (` n₁ ⊞ ` n₂) ⇾ ` (n₁ + n₂)
+    β-⊞  : (` n₁ ⊞ ` n₂) ⇾ ` (n₁ + n₂)
     
-    β-/-zero : (` n / ` 0) ⇾ throw err
-    β-/ : n₂ ≠ 0 → (` n₁ / ` n₂) ⇾ ` (n₁ / n₂)
-    
-    -- Exception propagation: if subterm throws, bubble it up
-    ξ-⊞₁-exc : e₁ ⇾ throw err → (e₁ ⊞ e₂) ⇾ throw err
-    ξ-⊞₂-exc : e₂ ⇾ throw err → (` n ⊞ e₂) ⇾ throw err
+    -- Exception propagation: throw bubbles up through each context
+    β-⊞-exn₁ : (throw ex ⊞ e₂) ⇾ throw ex
+    β-⊞-exn₂ : (` n₁ ⊞ throw ex) ⇾ throw ex
     
     -- Try-catch handling
-    ξ-try : e ⇾ e' → (try e catch h) ⇾ (try e' catch h)
-    β-try-throw : (try (throw err) catch h) ⇾ (h err)
+    ξ-try  : e ⇾ e' → (try e catch h) ⇾ (try e' catch h)
+    β-try-throw : (try (throw ex) catch h) ⇾ (h ex)
 \end{minted}
 
 \section{Denotational Semantics}
 % todo: look at the paper
 \cite{calculatingexceptionalmachines}
 
-\section{Abstract Machine with Exception Handling}
+\section{Abstract Machine}
 The abstract machine extends the base machine to handle exceptions. 
 The stack now includes exception handler frames, allowing the machine to pop frames and invoke handlers when exceptions occur:
 \begin{minted}{agda}
 data Frame : Type → Type → Set where
     -- Base frames (from before)
     _𝚎𝚕𝚜𝚎_         : ⊢ T → ⊢ T → Frame T Bool
-    _⊞₀_           : ⊢ Nat → Frame Nat Nat
-    _⊞₁_           : ⊨ Nat → Frame Nat Nat
+    _⊞₀_           : Hole → ⊢ Nat → Frame Nat Nat
+    _⊞₁_           : ⊨ Nat → Hole → Frame Nat Nat
     -- Exception handling frame
     catch          : (Exception → ⊢ T) → Frame T T
 
