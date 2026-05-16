@@ -1,0 +1,11 @@
+\frametitle{STLC: Why Small-Step Equivalence Remains Open}
+\begin{minted}{agda}
+embed : ∀ {T : Type} → ⊨ T → ∅ ⊢ T
+embed {T = T₁ ⇒ T₂} ⟨ δᶜ , eᶜ ⟩ = ƛ ?
+\end{minted}
+\begin{itemize}
+    \item To state simulation, closure values must be re-embedded as syntax.
+    \item The captured environment in closures prevents a direct embedding.
+    \item Small-step uses substitution; big-step uses environment lookup.
+    \item Proving these two mechanisms equivalent is left as future work.
+\end{itemize}

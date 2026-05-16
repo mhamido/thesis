@@ -1,0 +1,14 @@
+\frametitle{STLC: Open Problem — Small-Step Equivalence}
+Small-step performs \emph{substitution}:
+  \[ (\lambda\,e) \cdot v \;\longrightarrow\; e[v/0] \]
+
+  Big-step uses \emph{environment lookup}:
+  $(\delta^c, v_2) \vdash e^c \Downarrow v$
+
+  \bigskip
+  To state equivalence we need \texttt{embed : ⊨ T → ∅ ⊢ T}:
+\begin{minted}[bgcolor=gray!8]{agda}
+  embed {T = T₁ ⇒ T₂} ⟨ δᶜ , eᶜ ⟩ = ƛ ?   -- body is in Γᶜ, not ∅,T₁
+\end{minted}
+
+  The captured environment $\delta^c$ is defined in context $\Gamma^c \neq \emptyset$ — it \emph{cannot} be embedded. This equivalence remains an \textbf{open problem}.

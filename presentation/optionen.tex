@@ -1,0 +1,212 @@
+%
+% THE BEER-WARE LICENSE (Rev. 42):
+% Ronny Bergmann <bergmann@mathematik.uni-kl.de> wrote this file. As long as
+% you retain this notice you can do whatever you want with this stuff. If we
+% meet some day, and you think this stuff is worth it, you can buy me a beer
+% or coffee in return.
+%
+%
+% Actually Ronny Bergmann wrote a template file for the TUK. Patrick Mischke 
+% <mischke@rptu.de> rewrote it for the RPTU. I don't drink beer or coffee, 
+% but I'm sure you can buy me something nice as well if you feel like it. 
+%
+\documentclass[german,10pt,compress]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[OT1]{fontenc}
+\usepackage[ngerman]{babel} % Neue Rechtschreibung
+\usepackage{amsmath,amsthm,amssymb,euscript} % AMS-LaTeX  
+\usepackage[TeX]{listings}
+\usetheme[displaynavigation,reducedframetotal,maincolor=rptupink,redhat=true,footalignment=left
+]{RPTU}
+% Meta alternative in XeLaTeX
+\setbeamertemplate{navigation symbols}{}
+\title{\LaTeX-Beamer Theme im Stil der \mbox{RPTU Kaiserslautern-Landau}}
+\subtitle{Verwendung und Optionen dieses Themes}
+\date[]{\today}
+\author[P. Mischke]{Patrick Mischke\\Original für die TUK von Ronny Bergmann}
+\institute[]{AG Ott\\FB Physik\\RPTU Kaiserslautern}
+
+\begin{document}
+\maketitle
+\begin{frame}{Inhaltsverzeichnis}
+	\tableofcontents
+\end{frame}
+\section{Einrichten}
+\begin{frame}[fragile]{Benötigte Pakete}
+	folgende Pakete werden von dem Theme benötigt und per \lstinline!\RequirePackage! eingebunden:
+	\begin{itemize}
+		\item \lstinline!ifthen!
+		\item \lstinline!pdftexcmds!
+		\item \lstinline!calc!
+		\item \lstinline!TikZ!
+	\end{itemize}\vspace{\baselineskip}
+	sowie bei LuaLaTeX bzw. XeLaTeX zusätzlich
+	\begin{itemize}
+		\item \lstinline!fontspec, fontenc, mathspec!
+	\end{itemize}\vspace{\baselineskip}
+	Wird LuaLaTeX bzw. XeLaTeX verwendet, wird die Uni Schriftart RedHatText\footnote{\url{https://github.com/RedHatOfficial/RedHatFont/releases/}} verwendet.
+	Diese muss dafür im System installiert sein.
+\end{frame}
+\begin{frame}{Einbinden des Themes}
+	\begin{itemize}
+		\item Benötigt: 4 Dateien
+		      \begin{itemize}
+			      \item \lstinline|beamercolorthemeRPTU.sty|
+			      \item \lstinline|beamerinnerthemeRPTU.sty|
+			      \item \lstinline!beamerouterthemeRPTU.sty!
+			      \item \lstinline|beamerthemeRPTU.sty|
+		      \end{itemize}
+
+		\item nach den Paketen mit \textbackslash\lstinline|usetheme[<Optionen>]\{RPTU\}| das Paket laden
+		\item Am einfachsten: Mit dem Beispiel \lstinline!example-pres-RPTU-design.tex! loslegen
+	\end{itemize}
+\end{frame}
+\section{Optionen}
+\subsection*{}
+\newcommand{\farbe}[1]{{\color{#1}\lstinline|#1|}}
+\begin{frame}{Optionen}{Farben}
+	Die Präsentation wird mit einem der Farbpaare aus dem Corporate Design erstellt. Über die Option \lstinline!maincolor=<farbe>! kann die Hauptfarbe gewählt werden. Wird die Option nicht verwendet, wird die Farbe zufällig ausgesucht. \par
+	Folgenden Farben sind möglich:
+	\farbe{rptublaugrau} \farbe{rptugruengrau} \farbe{rptudunkelblau} \farbe{rptuhellblau}
+	\farbe{rptudunkelgruen} \farbe{rptuhellgruen} \farbe{rptuviolett} \farbe{rptupink}
+	\farbe{rpturot} \farbe{rptuorange}. Experimentell sind auch \farbe{rptuschwarz} und \color{black}\lstinline!rptuweiss! nutzbar.\par
+	Die passende Zweitfarbe des Paares wird automatisch gesetzt. Innerhalb der Präsentation kann über obige Namen auf die Farben zugegriffen werden. Die gewählten Farben stehen per \farbe{mainrptuthemecolor} und \farbe{secondaryrptuthemecolor} zur Verfügung. \par
+\end{frame}
+\begin{frame}[coloredbackground, fragile]{Optionen}{Farben II}
+	Es ist möglich, einzelne Folien in Bunt zu gestalten. Dies geht mit der Option \lstinline![coloredbackground]!, also z.B.
+	\begin{lstlisting}
+\begin{frame}[coloredbackground]{Titel}{Untertitel}
+\end{lstlisting}
+	Wie du dir schon gedacht hast, ist diese Folie ein Beispiel dafür.
+\end{frame}
+\begin{frame}[coloredbackground, stackedUbackground, fragile]{Optionen}{Hintergrund U}
+	Im Hintergrund können außerdem stapelweise Signet-U eingebunden werden. Dies geht mit der Option \lstinline![stackedUbackground]!, also konkret
+	\begin{lstlisting}
+\begin{frame}[coloredbackground, stackedUbackground]
+\end{lstlisting}
+	Auch hier ist diese Folie ein Beispiel dafür.
+\end{frame}
+\begin{frame}{Schriftart}{nur XeLaTeX/LuaLaTex}
+	\begin{itemize}
+		\item Wird XeLaTeX oder LuaLaTex verwendet, dann wird automatisch RedHatText als Schriftart ausgewählt. Mit der Option \lstinline!redhat=false! kann dies ausgeschaltet werden.
+		\item Bei XeLaTeX wird RedHatText auch für mathematische Formeln verwendet: $E=mc^2$
+		\item Sollte RedHatText nicht installiert sein, führt dies zu Fehlern. Konkret werden die \lstinline!.ttf! Varianten von \lstinline!RedHatText-Regular!, \lstinline!RedHatText-Bold!, \lstinline!RedHatText-Italic!, \lstinline!RedHatText-BoldItalic!, \lstinline!RedHatMono-Regular!, \lstinline!RedHatMono-Bold!, \lstinline!RedHatMono-Italic! und \lstinline!RedHatMono-BoldItalic! benötigt.
+		\item Wird \lstinline!pdflatex! verwendet, so kann RedHatText nicht verwendet werden.
+	\end{itemize}
+\end{frame}
+\begin{frame}{Gesamtfolienanzahl und Navigation}
+	\begin{itemize}
+		\item \lstinline|frametotal=true|: Zeige hinter der Foliennummer in der Fußzeile die Gesamtfolienanzahl. Beispiel: \insertframenumber{}/\inserttotalframenumber
+		\item \lstinline|frametotal=false|: Zeige die Gesamtanzahl nicht. Beispiel: \insertframenumber{}
+		\item Standardwert: \lstinline|frametotal=false|
+		\item Bonusoption: \lstinline|reducedframetotal|. Zeige die gekürzte Folienzahl. Beisipel siehe diese Folien ;-)
+	\end{itemize}
+	\vspace{\baselineskip}
+	\begin{itemize}
+		\item \lstinline|navigation=true| bzw. \lstinline|displaynavigation| Zeige in der Kopfzeile eine Navigation an (wie in diesem Foliensatz)
+		\item \lstinline|navigation=false| bzw. \lstinline|hidenavigation| Zeige keine Navigation an
+		\item Standardwert: \lstinline|navigation=false|
+	\end{itemize}
+\end{frame}
+\begin{frame}[plain]{Leere Folien}
+	Wird einmal mehr Platz benötigt, kann mit der option \lstinline|[plain]| des \lstinline|frame| eine komplett leere Folie erzeugt werden, wie diese hier.
+\end{frame}
+\begin{frame}{Darstellung von Blöcken}
+	\begin{itemize}
+		\item \lstinline!twoColorBoxes=true! (default): Boxen werden zweigeteilt dargestellt.
+		      \begin{block}{Beispiel}
+			      Dies ist eine zweifarbige Box.
+		      \end{block}
+		\item \lstinline!twoColorBoxes=false! oder \lstinline!oneColorBoxes!: Boxen werden einfarbig dargestellt.
+		      \setbeamercolor*{box text}{fg=white}
+		      \setbeamercolor*{block body}{parent=box text, use=block title,bg=block title.bg}
+		      \setbeamercolor*{block body alerted}{parent=box text,use=block title alerted,bg=block title alerted.bg}
+		      \setbeamercolor*{block body example}{parent=box text,use=block title example,bg=block title example.bg}
+		      \begin{block}{Beispiel}
+			      Dies ist eine einfarbige Box.
+		      \end{block}
+	\end{itemize}\end{frame}
+\begin{frame}{Darstellung von Blöcken}{Ursprüngliches CD}
+	Im ursprünglichen CD der RPTU gab es eine Blockform mit einer runden Ecke. Da dies für den durchschnittlichen Powerpoint Nutzer wohl zu kompliziert war, wurde es nachträglich entfernt. Schade eigentlich, da dies ganz hübsch war. Falls du diese Blöcke haben möchtest, kannst du sie per \lstinline!\\setbeamertemplate\{blocks\}\[RPTU\]! aktivieren.
+	\setbeamertemplate{blocks}[RPTU]
+	\begin{block}{Box im ersten Entwurf des CD der RPTU}
+		Gefallen dir weder eckige noch diese Spezialform, stehen dir die üblichen Formen frei (z.B: \lstinline!\\setbeamertemplate\{blocks\}\[rounded\]!)
+	\end{block}
+\end{frame}
+\begin{frame}{Seitenverhältnis}
+	\begin{itemize}
+		\item Diese Vorlage sollte 16:9 und 4:3 Formate unterstützen.
+		\item Auswahl direkt in den Optionen von \lstinline!beamer! in der \lstinline!documentclass[...]!, also z.B. \lstinline!aspectratio=169!
+		\item Man kann auch beliebige andere Seitenverhältnisse setzen (also z.b. \lstinline!aspectratio=137! für 13:7 oder \lstinline!aspectratio=42! für 4:2 oder \lstinline!aspectratio=1024! für 10:24). Wie gut das Design dann funktioniert mag ich nicht vorhersagen.
+		\item Standardwert von Beamer ist 4:3
+	\end{itemize}
+\end{frame}
+\def\rptufootalignment{centered}%
+\begin{frame}{Fußleiste}
+	\begin{itemize}
+		\item \lstinline|footalignment=left|: Autor, Titel, etc. in der Fußleiste sind linksbündig (Beispiel: Alle Folien außer dieser)
+		\item \lstinline|footalignment=centered|: Die Fußleiste ist gleichmäßig verteilt (Beispiel: Diese Folie)
+		\item Standardwert: \lstinline|footalignment=left|
+	\end{itemize}
+\end{frame}
+\def\rptufootalignment{left}%
+\section{Befehle}
+\subsection*{}
+\begin{frame}[fragile]{Titelseite}
+	\begin{itemize}
+		\item Der Befehl \lstinline|\maketitle| erzeugt eine Titelfolie.
+
+		\item Er kann in einem \lstinline|frame| aufgerufen werden, dann wird der Stil des Frames verwendet.
+
+		\item Außerhalb eines Frames wird ein Titelframe erzeugt, der den Standardkopf hat, aber keine Fußzeile (siehe Titelfolie dieser Folien).
+
+		\item Es gibt zwei Varianten für die Titelseite: Mit oder ohne Signet U. Per \lstinline|signetontitle=true/false| auswählbar.
+	\end{itemize}
+\end{frame}
+\logo{\color{black}\Large{\parbox{3cm}{\centering Hier wäre\\das Logo}}}
+\begin{frame}{Logo}
+	Ein eigenes Logo kann per \lstinline|\\logo\{xy\}| wie gewohnt eingebunden werden und erscheint oben rechts. Es wird entsprechend Platz geschaffen.\par
+	Auch die übrigen Beamerbefehle (\lstinline|\\title|, \lstinline|\\subtitle|, \lstinline|\\date|, \lstinline|\\author| und \lstinline|\\institute|) sind natürlich nutzbar.
+\end{frame}
+\logo{}
+\begin{frame}{Links}
+	\begin{itemize}
+		\item Vorlagen und Arbeitshilfen im Design der RPTU\\ \href{https://rptu.de/ueber-die-rptu/organisation/referate/universitaetskommunikation/rptu-corporate-design}{https://rptu.de/ueber-die-rptu/organisation/referate/universitaetskommunikation/rptu-corporate-design}\\
+		      \href{https://rptu.de/intern/brand-portal}{https://rptu.de/intern/brand-portal} (nur intern)
+		\item Die Schriftart RedHatText\\
+		      \href{https://github.com/RedHatOfficial/RedHatFont/}{https://github.com/RedHatOfficial/RedHatFont/}
+		\item Userguide zu \LaTeX-Beamer\\ \href{ftp://ftp.dante.de/tex-archive/macros/latex/contrib/beamer/doc/beameruserguide.pdf}{dante.de/tex-archive/macros/latex/contrib/beamer/doc/beameruserguide.pdf}
+		\item Aktuellste Version dieses Paketes/Themes auf \href{http://github.com}{github.com}:\\
+		      \href{https://github.com/Patschke/RPTU-Design/archive/master.zip}{https://github.com/Patschke/RPTU-Design/archive/master.zip}
+	\end{itemize}
+\end{frame}
+\section{Changelog}
+\begin{frame}{Changelog}
+	Wenn du Anregungen und Feedback hast, melde dich gerne. Es lohnt sich womöglich, ab und an die neuste Version herunterzuladen.
+	\begin{itemize}
+		\item Januar 2023: Inititale Version mit allen wesentlichen Features
+		\item Februar 2023: Option für eigenes Logo ergänzt
+		\item März 2023: Alternative Titelfolie mit Signet-U
+		\item Januar 2024: Überarbeitung nach Feedback der Universitätskommunikation, insbesondere:
+		      \begin{itemize}
+			      \item Obere Navigation per Default deaktiviert
+			      \item Aufzählungen/Listen an CD angepasst
+			      \item Fußzeile an CD angepasst
+			      \item Blöcke per Default wieder eckig gemacht
+		      \end{itemize}
+		\item November 2025: Schriftimport via ttf oder otf (beigetragen von Martin Wagner)
+	\end{itemize}
+	Dieser Changelog ist bestimmt nicht vollständig.
+\end{frame}
+\begin{frame}{Lizenz}
+	\begin{block}{THE BEER-WARE LICENSE (Rev. 42)}
+		Ronny Bergmann <bergmann@mathematik.uni-kl.de> wrote this file. As long as
+		you retain this notice you can do whatever you want with this stuff. If we
+		meet some day, and you think this stuff is worth it, you can buy me a beer
+		or coffee in return.\par\vspace*{1ex}
+		Actually Ronny Bergmann wrote a template file for the TUK. Patrick Mischke
+		<mischke@rptu.de> rewrote it for the RPTU. I don't drink beer or coffee,
+		but I'm sure you can buy me something nice as well if you feel like it.
+	\end{block}
+\end{frame}
+\end{document}

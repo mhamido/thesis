@@ -1,0 +1,662 @@
+\documentclass[10pt,compress,aspectratio=169]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[OT1]{fontenc}
+\usepackage{amsmath,amsthm,amssymb}
+\usepackage{mathpartir}
+\usepackage{stmaryrd}
+\usepackage{booktabs}
+\usepackage{minted}
+\setminted{fontsize=\footnotesize, breaklines=true, autogobble=true}
+
+\usetheme[
+  navigation=false,
+  frametotal=false,
+  maincolor=rptudunkelblau,
+  oneColorBoxes,
+  signetontitle=true,
+  redhat=false
+]{RPTU}
+
+\title{Deriving Verified Abstract Machines}
+\subtitle{From Big-Step Semantics in Agda}
+\date[May 2026]{May 2026}
+\author[M.\,Hamido]{Mahmoud M. Hamido}
+\institute[]{Department of Computer Science\\RPTU Kaiserslautern-Landau}
+
+\begin{document}
+\maketitle
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Motivation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}{The Problem: Specs vs.\ Implementations}
+  \begin{itemize}
+    \item Language specifications are written documents (C++ Standard, JLS, WebAssembly spec)
+    \item Conformance is checked by \emph{testing}
+    \bigskip
+    \item \textbf{Flaw}: testing proves no \emph{absence} of bugs
+    \item A test suite is finite; the specification is universal
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Solution: Formal Verification}
+  \begin{itemize}
+    \item \textbf{Formal verification} proves correctness for \emph{all} inputs simultaneously
+    \item Tool: \textbf{Agda} — a dependently typed proof assistant
+    \bigskip
+    \item Curry–Howard correspondence: propositions $\leftrightarrow$ types, proofs $\leftrightarrow$ values
+    \item The type checker \emph{is} the proof checker
+    \bigskip
+    \item \textbf{Central goal:} derive an abstract machine directly from big-step semantics, with machine-checked correctness and completeness
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Three Case Studies}
+  \begin{enumerate}
+    \item \textbf{Arithmetic} — natural numbers, booleans, addition, conditionals
+    \item \textbf{Exceptions} — arithmetic extended with \texttt{throw} and \texttt{try-catch}
+    \item \textbf{STLC} — Simply Typed Lambda Calculus with $\lambda$-abstractions
+  \end{enumerate}
+  \bigskip
+  \begin{center}
+    For each: define four forms of semantics and prove the chain of equivalences
+    \[
+      \text{Denotational}
+      \;\longleftrightarrow\;
+      \text{Big-Step}
+      \;\longleftrightarrow\;
+      \text{Machine}
+      \;\longleftrightarrow\;
+      \text{Small-Step}
+    \]
+  \end{center}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Background}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}[fragile]{Agda: Dependent Types}
+  Types may depend on values. Classic example: length-indexed lists.
+
+\begin{minted}[bgcolor=gray!8]{agda}
+data Vec (A : Set) : ℕ → Set where
+  []  : Vec A zero
+  _∷_ : A → Vec A n → Vec A (suc n)
+\end{minted}
+
+  The length lives in the \emph{type}, not just in memory.
+  \bigskip
+
+  Termination is checked structurally. Every recursive call must be on a structurally smaller argument:
+
+\begin{minted}[bgcolor=gray!8]{agda}
+n+0≡n : (n : ℕ) → n + zero ≡ n
+n+0≡n zero    = refl
+n+0≡n (suc n) rewrite n+0≡n n = refl
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Agda: Propositions as Types}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+      The empty type has no proof (is unprovable):
+\begin{minted}[bgcolor=gray!8]{agda}
+data ⊥ : Set where
+-- no constructors
+
+ex-falso : {P : Set} → ⊥ → P
+ex-falso ()
+\end{minted}
+
+    \column{0.48\textwidth}
+      Propositional equality:
+\begin{minted}[bgcolor=gray!8]{agda}
+data _≡_ {A : Set} (x : A)
+    : A → Set where
+  refl : x ≡ x
+\end{minted}
+  \end{columns}
+  \bigskip
+  \begin{itemize}
+    \item \texttt{refl} is the only proof of \texttt{x ≡ x}
+    \item Pattern matching on \texttt{refl} unifies \texttt{x} and \texttt{y} in \texttt{x ≡ y}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Intrinsic Typing}
+  Instead of defining a type checker separately, index the syntax by its type.
+  Every constructible term is \emph{well-typed by construction}.
+
+\begin{minted}[bgcolor=gray!8]{agda}
+-- Value domain: maps types to Agda types
+⊨_ : Type → Set
+⊨ Nat  = ℕ
+⊨ Bool = 𝔹
+
+-- Expression type: indexed by Type
+data ⊢_ : Type → Set where
+    `_            : ⊨ T → ⊢ T
+    _⊞_           : ⊢ Nat → ⊢ Nat → ⊢ Nat
+    test          : ⊢ Nat → ⊢ Bool
+    if_then_else_ : ⊢ Bool → ⊢ T → ⊢ T → ⊢ T
+\end{minted}
+
+  Ill-typed programs are \emph{not representable}.
+\end{frame}
+
+\begin{frame}{Four Forms of Semantics}
+  \begin{center}
+  \renewcommand{\arraystretch}{1.4}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Semantics} & \textbf{Notation} & \textbf{Style} \\
+    \midrule
+    Big-Step     & $e \Downarrow v$   & Inductive relation; subderivations \\
+    Small-Step   & $e \longrightarrow e'$ & Step-by-step reduction \\
+    Denotational & $\llbracket e \rrbracket$ & Recursive interpreter \\
+    Machine      & $s \longrightarrow s'$ & Stack + frames \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \bigskip
+  \[
+    \text{Denotational}
+    \;\longleftrightarrow\;
+    \text{Big-Step}
+    \;\longleftrightarrow\;
+    \text{Machine}
+    \;\longleftrightarrow\;
+    \text{Small-Step}
+  \]
+  Each link proved independently; transitivity gives any pair.
+\end{frame}
+
+\begin{frame}{Deriving Abstract Machines: Key Idea}
+  An interpreter evaluates subexpressions \emph{recursively}, suspending the parent until the result is available.
+
+  \bigskip
+  Make these \emph{suspended computations} explicit as \textbf{frames}:
+  \begin{itemize}
+    \item A frame records surrounding context with a \emph{hole} $\circ$ for the pending value
+    \item Evaluating $e_1 \oplus e_2$: push frame $(\circ \oplus e_2)$, evaluate $e_1$
+    \item Once $v_1$ is known: replace frame with $(v_1 \oplus \circ)$, evaluate $e_2$
+    \item Once $v_2$ is known: pop frame, return $v_1 + v_2$
+  \end{itemize}
+
+  \bigskip
+  The collection of frames forms a \textbf{stack}.
+  The machine halts when it reaches a return state with an empty stack.
+\end{frame}
+
+\begin{frame}{Completeness and Correctness}
+  Two properties must be proved for the machine to be consistent with big-step semantics:
+
+  \bigskip
+  \begin{block}{Completeness}
+    If $e \Downarrow v$, then for any stack $\mathit{stk}$,
+    \[
+      (\mathit{stk} \uparrow e) \longrightarrow^* (\mathit{stk} \downarrow v)
+    \]
+    Proved by induction on the big-step derivation, generalising over an arbitrary stack.
+  \end{block}
+
+  \bigskip
+  \begin{block}{Correctness}
+    If $([\,] \uparrow e) \longrightarrow^* ([\,] \downarrow v)$, then $e \Downarrow v$.
+    \par
+    Proof: use \emph{totality} to get $v'$ with $e \Downarrow v'$; use completeness to get a run to $\downarrow v'$; apply \emph{confluence} to get $v = v'$.
+  \end{block}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Arithmetic}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}[fragile]{Arithmetic: Syntax and Types}
+\begin{minted}[bgcolor=gray!8]{agda}
+data Type : Set where
+    Nat : Type
+    Bool : Type
+
+⊨_ : Type → Set
+⊨ Nat  = ℕ
+⊨ Bool = 𝔹
+
+data ⊢_ : Type → Set where
+    `_              : ⊨ T → ⊢ T
+    _⊞_             : ⊢ Nat → ⊢ Nat → ⊢ Nat
+    test            : ⊢ Nat → ⊢ Bool
+    if_then_else_   : ⊢ Bool → ⊢ T → ⊢ T → ⊢ T
+\end{minted}
+  \texttt{test'~0~=~true}; \texttt{test'~(suc~n)~=~false}.
+\end{frame}
+
+\begin{frame}[fragile]{Arithmetic: Big-Step Semantics}
+\begin{minted}[bgcolor=gray!8]{agda}
+data _⇓_ : ⊢ T → ⊨ T → Set where
+    `_ : (v : ⊨ T) → (` v) ⇓ v
+    _⊞_ : e₁ ⇓ n₁ → e₂ ⇓ n₂
+        → (e₁ ⊞ e₂) ⇓ (n₁ + n₂)
+    test : e ⇓ n
+        → (test e) ⇓ (test' n)
+    if-then : e ⇓ true  → e₁ ⇓ v → (if e then e₁ else e₂) ⇓ v
+    if-else : e ⇓ false → e₂ ⇓ v → (if e then e₁ else e₂) ⇓ v
+\end{minted}
+  \begin{itemize}
+    \item \textbf{Deterministic:} \texttt{deterministic : e ⇓ v₁ → e ⇓ v₂ → v₁ ≡ v₂}
+    \item \textbf{Total:} \texttt{total : ∀ (e : ⊢ T) → ∃ (λ v → e ⇓ v)}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Arithmetic: Denotational Semantics}
+\begin{minted}[bgcolor=gray!8]{agda}
+⟦_⟧ : ∀ {T} → ⊢ T → ⊨ T
+⟦ ` v ⟧                   = v
+⟦ e₁ ⊞ e₂ ⟧              = ⟦ e₁ ⟧ + ⟦ e₂ ⟧
+⟦ test e ⟧                = test' ⟦ e ⟧
+⟦ if e then e₁ else e₂ ⟧ with ⟦ e ⟧
+... | true  = ⟦ e₁ ⟧
+... | false = ⟦ e₂ ⟧
+\end{minted}
+
+  Equivalence with big-step:
+\begin{minted}[bgcolor=gray!8]{agda}
+simulate  : e ⇓ v → ⟦ e ⟧ ≡ v
+simulateᴿ : ∀ (e : ⊢ T) → ⟦ e ⟧ ≡ v → e ⇓ v
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Arithmetic: Machine — Frames and Stack}
+\begin{minted}[bgcolor=gray!8]{agda}
+data Hole : Set where ◌ : Hole
+
+data Frame : Type → Type → Set where
+    _𝚎𝚕𝚜𝚎_  : ⊢ T → ⊢ T → Frame T Bool
+    _⊞₀_    : Hole → ⊢ Nat → Frame Nat Nat
+    _⊞₁_    : ⊨ Nat → Hole → Frame Nat Nat
+    test    : Hole → Frame Bool Nat
+
+data Stack (Answer : Type) : Type → Set where
+    []   : Stack Answer Answer
+    _∷_  : Stack Answer T₁ → Frame T₁ T₂ → Stack Answer T₂
+
+data State (Answer : Type) : Set where
+    ⊢_↓_ : Stack Answer T → ⊨ T → State Answer
+    ⊢_↑_ : Stack Answer T → ⊢ T → State Answer
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Arithmetic: Machine Transitions}
+\begin{minted}[bgcolor=gray!8]{agda}
+data _⇾_ : State Answer → State Answer → Set where
+  step-`    : ⊢ stack ↑ ` v ⇾ ⊢ stack ↓ v
+  step-⊞₁   : ⊢ stack ↑ (e₁ ⊞ e₂) ⇾ ⊢ stack ∷ (◌ ⊞₀ e₂) ↑ e₁
+  step-⊞₂   : ⊢ stack ∷ (◌ ⊞₀ e₂) ↓ v₁ ⇾ ⊢ stack ∷ (v₁ ⊞₁ ◌) ↑ e₂
+  step-⊞₃   : ⊢ stack ∷ (v₁ ⊞₁ ◌) ↓ v₂ ⇾ ⊢ stack ↓ (v₁ + v₂)
+  step-𝚒𝚏   : ⊢ stack ↑ (if e then e₁ else e₂)
+              ⇾ ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↑ e
+  step-𝚝𝚑𝚎𝚗 : ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↓ true  ⇾ ⊢ stack ↑ e₁
+  step-𝚎𝚕𝚜𝚎 : ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↓ false ⇾ ⊢ stack ↑ e₂
+\end{minted}
+  Each transition corresponds directly to a case in the big-step semantics.
+\end{frame}
+
+\begin{frame}[fragile]{Arithmetic: Completeness}
+  Proof by induction on the big-step derivation — must generalise over an arbitrary stack:
+
+\begin{minted}[bgcolor=gray!8]{agda}
+complete : ∀ (e : ⊢ T) (v : ⊨ T) (stack : Stack Answer T)
+    → e ⇓ v
+    → (⊢ stack ↑ e) ⇾⃰ (⊢ stack ↓ v)
+\end{minted}
+
+  Example case for conditionals:
+\begin{minted}[bgcolor=gray!8]{agda}
+complete (if e then e₁ else e₂) v stack (if-then p p₁) =
+    step step-𝚒𝚏
+    (⇾⃰-transitive (complete e _ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) p)
+    (step step-𝚝𝚑𝚎𝚗
+    (complete e₁ v stack p₁)))
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Arithmetic: Correctness via Confluence}
+\begin{minted}[bgcolor=gray!8]{agda}
+⇾⃰-confluence : e ⇾⃰ e₁ → e ⇾⃰ e₂
+  → (∀ {e'} → e₁ ⇾ e' → ⊥)
+  → (∀ {e'} → e₂ ⇾ e' → ⊥)
+  → e₁ ≡ e₂
+\end{minted}
+
+  \bigskip
+  Correctness proof strategy:
+  \begin{enumerate}
+    \item Use \textbf{totality}: obtain $v'$ with $e \Downarrow v'$
+    \item Use \textbf{completeness}: get run $([\,] \uparrow e) \longrightarrow^* ([\,] \downarrow v')$
+    \item Use \textbf{confluence}: the run to $\downarrow v$ and the run to $\downarrow v'$ both start from $([\,]\uparrow e)$ and both end in values $\Rightarrow$ $v = v'$
+  \end{enumerate}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Exceptions}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}[fragile]{Exceptions: Language Extension}
+\begin{minted}[bgcolor=gray!8]{agda}
+data Exception : Set where
+    err : Exception
+
+data ⊢_ where
+    ...
+    throw      : Exception → ⊢ T
+    try_catch_ : ⊢ T → (Exception → ⊢ T) → ⊢ T
+\end{minted}
+
+  Evaluation may now produce a value \emph{or} raise an exception:
+
+\begin{minted}[bgcolor=gray!8]{agda}
+data Result (T : Type) : Set where
+    return  : ⊨ T → Result T
+    raise   : Exception → Result T
+\end{minted}
+
+  Aliases: $e \Downarrow v := e \Downarrow^r \mathtt{return}\ v$; \quad $e \Uparrow ex := e \Downarrow^r \mathtt{raise}\ ex$
+\end{frame}
+
+\begin{frame}[fragile]{Exceptions: Big-Step Semantics}
+\begin{minted}[bgcolor=gray!8]{agda}
+data _⇓ʳ_ : ⊢ T → Result T → Set where
+    `_ : (v : ⊨ T) → (` v) ⇓ʳ return v
+
+    _⊞_     : e₁ ⇓ n₁ → e₂ ⇓ n₂  → (e₁ ⊞ e₂) ⇓ (n₁ + n₂)
+    ⊞-exn₁  : e₁ ⇑ ex             → (e₁ ⊞ e₂) ⇑ ex
+    ⊞-exn₂  : e₁ ⇓ n₁ → e₂ ⇑ ex  → (e₁ ⊞ e₂) ⇑ ex
+
+    throw-rule : throw ex ⇓ʳ raise ex
+
+    try-return : e ⇓ v              → (try e catch h) ⇓ v
+    try-catch  : e ⇑ ex → h ex ⇓ʳ r → (try e catch h) ⇓ʳ r
+\end{minted}
+  Every construct has a separate rule for each outcome (value or exception).
+\end{frame}
+
+\begin{frame}[fragile]{Exceptions: Machine — Three Modes}
+  The machine now operates in three modes:
+
+\begin{minted}[bgcolor=gray!8]{agda}
+data State (Answer : Type) : Set where
+    ⊢_↑_ : Stack Answer T → ⊢ T      → State Answer
+    ⊢_↓_ : Stack Answer T → ⊨ T      → State Answer
+    ⊢_☇_ : Stack Answer T → Exception → State Answer
+\end{minted}
+
+  \begin{itemize}
+    \item $\uparrow$ \textbf{eval} mode: evaluating an expression
+    \item $\downarrow$ \textbf{return} mode: returning a value
+    \item $\text{☇}$ \textbf{unwind} mode: propagating an exception up the stack
+  \end{itemize}
+
+  New frame type:
+\begin{minted}[bgcolor=gray!8]{agda}
+    catch : (Exception → ⊢ T) → Frame T T
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Exceptions: New Transitions}
+\begin{minted}[bgcolor=gray!8]{agda}
+  step-throw     : ⊢ stack ↑ throw ex ⇾ ⊢ stack ☇ ex
+  step-try       : ⊢ stk ↑ (try e catch h)
+                   ⇾ ⊢ stk ∷ catch h ↑ e
+  step-catch-ok  : ⊢ stk ∷ catch h ↓ v ⇾ ⊢ stk ↓ v
+  step-catch-exn : ⊢ stack ∷ catch h ☇ ex ⇾ ⊢ stack ↑ h ex
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Exceptions: Per-Frame Drop Rules}
+  When unwinding, each non-catch frame must be explicitly dropped.
+  A generic rule would lose track of which big-step constructor applies.
+
+\begin{minted}[bgcolor=gray!8]{agda}
+step-drop-𝚎𝚕𝚜𝚎 : ⊢ stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂) ☇ ex ⇾ ⊢ stack ☇ ex
+step-drop-⊞₀   : ⊢ stack ∷ (◌ ⊞₀ e₂) ☇ ex   ⇾ ⊢ stack ☇ ex
+step-drop-⊞₁   : ⊢ stack ∷ (v₁ ⊞₁ ◌) ☇ ex   ⇾ ⊢ stack ☇ ex
+step-drop-test  : ⊢ stack ∷ test ◌ ☇ ex        ⇾ ⊢ stack ☇ ex
+\end{minted}
+
+  Each rule corresponds to a specific $\Uparrow$-constructor in the big-step relation (e.g.\ \texttt{⊞-exn₁}, \texttt{⊞-exn₂}).
+\end{frame}
+
+\begin{frame}[fragile]{Exceptions: Mutual Recursion in Completeness}
+  Completeness splits into two mutually recursive lemmas:
+
+\begin{minted}[bgcolor=gray!8]{agda}
+complete     : e ⇓ v  → (⊢ stk ↑ e) ⇾⃰ (⊢ stk ↓ v)
+complete-exn : e ⇑ ex → (⊢ stk ↑ e) ⇾⃰ (⊢ stk ☇ ex)
+\end{minted}
+
+  \bigskip
+  Why mutual?
+  \begin{itemize}
+    \item The \texttt{try-catch} case of \texttt{complete} needs \texttt{complete-exn} for the body
+    \item The handler case of \texttt{complete-exn} calls \texttt{complete} for the handler
+  \end{itemize}
+
+  \bigskip
+  Correctness extended: two terminal states ($\downarrow$ vs $\text{☇}$).
+  If the big-step gives raise but the run ends in $\downarrow$, we get an equality between distinct constructors — discharged by \texttt{ex-falso}.
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Simply Typed Lambda Calculus}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}[fragile]{STLC: Syntax with De Bruijn Indices}
+\begin{minted}[bgcolor=gray!8]{agda}
+data _∈_ : Type → Context → Set where
+  Z : T ∈ (Γ , T)
+  S : T ∈ Γ → T ∈ (Γ , U)
+
+data _⊢_ (Γ : Context) : Type → Set where
+  Nat           : ℕ → Γ ⊢ Nat
+  Bool          : 𝔹 → Γ ⊢ Bool
+  _⊞_           : Γ ⊢ Nat → Γ ⊢ Nat → Γ ⊢ Nat
+  if_then_else_ : Γ ⊢ Bool → Γ ⊢ T → Γ ⊢ T → Γ ⊢ T
+  Var           : T ∈ Γ → Γ ⊢ T
+  ƛ_            : (Γ , T₁) ⊢ T₂ → Γ ⊢ (T₁ ⇒ T₂)
+  _·_           : Γ ⊢ (T₁ ⇒ T₂) → Γ ⊢ T₁ → Γ ⊢ T₂
+\end{minted}
+  Identity: \texttt{ƛ (Var Z)}. \quad Constant: \texttt{ƛ ƛ (Var (S Z))}.
+\end{frame}
+
+\begin{frame}[fragile]{STLC: Closures}
+  Values for function types are \emph{closures}: a saved environment paired with the body.
+
+\begin{minted}[bgcolor=gray!8]{agda}
+record Closure (A B : Type) : Set where
+  inductive
+  constructor ⟨_,_⟩
+  field
+    {Γᶜ} : Context
+    δᶜ   : Environment Γᶜ
+    eᶜ   : (Γᶜ , A) ⊢ B
+
+⊨_ : Type → Set
+⊨ Nat     = ℕ
+⊨ Bool    = 𝔹
+⊨ (A ⇒ B) = Closure A B
+\end{minted}
+
+  The \texttt{inductive} keyword is required: \texttt{Closure} and \texttt{⊨\_} are \emph{mutually recursive}.
+\end{frame}
+
+\begin{frame}[fragile]{STLC: Big-Step Semantics}
+\begin{minted}[bgcolor=gray!8]{agda}
+data _⊢_⇓_ : Environment Γ → Γ ⊢ T → ⊨ T → Set where
+  ...
+  VAR  : δ ⊢ Var x ⇓ lookupₑ δ x
+  ABS  : δ ⊢ ƛ e ⇓ ⟨ δ , e ⟩
+  app  : δ ⊢ e₀ ⇓ ⟨ δᶜ , eᶜ ⟩
+       → δ ⊢ e₁ ⇓ v₁
+       → (δᶜ , v₁) ⊢ eᶜ ⇓ v
+       → δ ⊢ e₀ · e₁ ⇓ v
+\end{minted}
+
+  Totality requires a \texttt{TERMINATING} pragma — the recursive call on the closure body is not structurally smaller:
+\begin{minted}[bgcolor=gray!8]{agda}
+{-# TERMINATING #-}
+total : ∀ (e : Γ ⊢ T) → ∃ (λ v → δ ⊢ e ⇓ v)
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{STLC: Denotational Semantics — Two Versions}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+      \textbf{Direct} (function types as Agda functions):
+\begin{minted}[bgcolor=gray!8]{agda}
+⟪_⟫ : Type → Set
+⟪ A ⇒ B ⟫ = ⟪ A ⟫ → ⟪ B ⟫
+
+interpret δ (ƛ e) =
+    λ z → interpret (δ , z) e
+interpret δ (e₁ · e₂) =
+    (interpret δ e₁) (interpret δ e₂)
+\end{minted}
+
+    \column{0.48\textwidth}
+      \textbf{Closure} (explicit closures):
+\begin{minted}[bgcolor=gray!8]{agda}
+evaluate δ (ƛ e) = ⟨ δ , e ⟩
+evaluate δ (e₁ · e₂) =
+    apply (evaluate δ e₁)
+          (evaluate δ e₂)
+
+apply ⟨ δᶜ , eᶜ ⟩ v =
+    evaluate (δᶜ , v) eᶜ
+\end{minted}
+  \end{columns}
+
+  \bigskip
+  Related by \textbf{logical relations}: $f_1 \sim_{\langle T \Rightarrow U \rangle} f_2$ iff for all related arguments, results are related.
+\end{frame}
+
+\begin{frame}[fragile]{STLC: Machine — Three Application Frames}
+  The environment is carried \emph{with the state}. Application uses three successive frames:
+
+\begin{minted}[bgcolor=gray!8]{agda}
+data Frame : Type → Type → Set where
+  app₁ : Hole → Γ ⊢ A       → Frame B (A ⇒ B)   -- evaluate e₁
+  app₂ : ⊨ (A ⇒ B) → Hole  → Frame B A           -- evaluate e₂
+  app₃ : Environment Γ → ⊨ (A ⇒ B) → ⊨ A
+       → Hole → Frame B B                          -- evaluate body
+\end{minted}
+
+  \begin{enumerate}
+    \item \texttt{app₁}: evaluate $e_1$, obtain closure
+    \item \texttt{app₂}: evaluate $e_2$, obtain argument $v_2$
+    \item \texttt{app₃}: switch to closure's env $\delta^c$, evaluate body $e^c$; restore caller's env on return
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{STLC: Machine Transitions for Application}
+\begin{minted}[bgcolor=gray!8]{agda}
+  step-var : (δ ⊢ stack ↑ Var x)
+           ⇾ (δ ⊢ stack ↓ lookupₑ δ x)
+  step-ƛ   : (δ ⊢ stack ↑ (ƛ e))
+           ⇾ (δ ⊢ stack ↓ ⟨ δ , e ⟩)
+  step-·   : (δ ⊢ stack ↑ e₁ · e₂)
+           ⇾ (δ ⊢ stack ∷ app₁ ◌ e₂ ↑ e₁)
+  step-·₁  : (δ ⊢ stack ∷ app₁ ◌ e₂ ↓ v₁)
+           ⇾ (δ ⊢ stack ∷ app₂ v₁ ◌ ↑ e₂)
+  step-·₂  : (δ ⊢ stack ∷ app₂ ⟨ δᶜ , eᶜ ⟩ ◌ ↓ v₂)
+           ⇾ ((δᶜ , v₂) ⊢ stack ∷ app₃ δ ⟨ δᶜ , eᶜ ⟩ v₂ ◌ ↑ eᶜ)
+  step-·₃  : (δ ⊢ stack ∷ app₃ δ′ f v₂ ◌ ↓ v₃)
+           ⇾ (δ′ ⊢ stack ↓ v₃)
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{STLC: Open Problem — Small-Step Equivalence}
+  Small-step performs \emph{substitution}:
+  \[ (\lambda\,e) \cdot v \;\longrightarrow\; e[v/0] \]
+
+  Big-step uses \emph{environment lookup}:
+  $(\delta^c, v_2) \vdash e^c \Downarrow v$
+
+  \bigskip
+  To state equivalence we need \texttt{embed : ⊨ T → ∅ ⊢ T}:
+\begin{minted}[bgcolor=gray!8]{agda}
+  embed {T = T₁ ⇒ T₂} ⟨ δᶜ , eᶜ ⟩ = ƛ ?   -- body is in Γᶜ, not ∅,T₁
+\end{minted}
+
+  The captured environment $\delta^c$ is defined in context $\Gamma^c \neq \emptyset$ — it \emph{cannot} be embedded. This equivalence remains an \textbf{open problem}.
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Related Work \& Conclusion}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}{Related Work}
+  \begin{description}
+    \item[Hutton (2002)] Evaluator $\to$ CPS $\to$ defunctionalization $\to$ machine.
+      A frame here $\equiv$ defunctionalized continuation. Correctness by construction.
+    \item[Hutton \& Wright (2004)] Same approach extended with exceptions. Continuation type modified to account for exception-raising.
+    \item[Hutton et al.\ (2006)] Verified compiler to a stack-based machine; handlers pushed as code; exceptions unwind to find a handler.
+    \item[Hutton et al.\ (Agda)] Agda formalization of the above — without explicit correctness proofs.
+    \bigskip
+    \item[\textbf{This thesis}] Derives machines from the \emph{structure of big-step derivations} directly. Machine-checked correctness and completeness.
+  \end{description}
+\end{frame}
+
+\begin{frame}{Summary of Results}
+  \renewcommand{\arraystretch}{1.3}
+  \begin{center}
+  \begin{tabular}{lccc}
+    \toprule
+    & \textbf{Arithmetic} & \textbf{Exceptions} & \textbf{STLC} \\
+    \midrule
+    Big-Step $\leftrightarrow$ Denotational & \checkmark & \checkmark & \checkmark \\
+    Big-Step $\leftrightarrow$ Machine      & \checkmark & \checkmark & \checkmark \\
+    Big-Step $\leftrightarrow$ Small-Step   & \checkmark & \checkmark & open \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \bigskip
+  \begin{itemize}
+    \item Uniform methodology: completeness by induction on big-step; correctness by totality + completeness + confluence
+    \item Chain of equivalences means any pair of semantics can be related
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Limitations \& Future Work}
+  \begin{block}{Limitations}
+    \begin{enumerate}
+      \item \textbf{Totality assumption}: big-step cannot represent non-terminating programs
+      \item \textbf{TERMINATING pragma} in STLC totality: accepted on trust, not verified structurally
+      \item \textbf{STLC small-step $\leftrightarrow$ big-step}: open due to substitution vs.\ environment mismatch
+    \end{enumerate}
+  \end{block}
+
+  \begin{block}{Future Work}
+    \begin{itemize}
+      \item Coinductive big-step or small-step as the primary semantics
+      \item Structural totality for STLC (eliminate pragma)
+      \item Kripke logical relations for STLC small-step equivalence
+      \item Abstract the methodology into a reusable framework
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+\begin{frame}[coloredbackground,stackedUbackground]{}
+  \centering\vfill
+  {\usebeamerfont{title}\usebeamercolor[fg]{title}Thank You\par}
+  \bigskip
+  {\large Questions?}
+  \vfill
+\end{frame}
+
+\end{document}

@@ -1,0 +1,22 @@
+\frametitle{STLC Abstract Machine: Environment in State}
+The environment is \textbf{carried in the machine state}: $\delta \vdash \mathtt{stk} \uparrow e$.
+  \medskip
+  \begin{columns}[T]
+    \column{0.52\textwidth}
+      Three frames for each phase of function application:
+      \begin{minted}[bgcolor=gray!8]{agda}
+data Frame : Type -> Type -> Set where
+  app1 : Hole -> G |- A   -> Frame B (A => B)
+  app2 : |= (A => B) -> Hole -> Frame B A
+  app3 : Env G -> |= (A => B) -> |= A
+       -> Hole -> Frame B B
+      \end{minted}
+    \column{0.44\textwidth}
+      \begin{block}{Three phases of $e_1 \cdot e_2$}
+        \begin{enumerate}
+          \item \textbf{app\textsubscript{1}}: evaluate $e_1$ to closure $\langle\delta^c, e^c\rangle$
+          \item \textbf{app\textsubscript{2}}: evaluate $e_2$ to argument $v_2$
+          \item \textbf{app\textsubscript{3}}: switch to $\delta^c$, evaluate body $e^c$;\\\emph{restore caller's environment} on return
+        \end{enumerate}
+      \end{block}
+  \end{columns}
