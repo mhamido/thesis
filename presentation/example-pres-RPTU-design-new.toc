@@ -1,6 +1,0 @@
-\beamer@sectionintoc {1}{Motivation}{3}{0}{1}
-\beamer@sectionintoc {2}{Background}{6}{0}{2}
-\beamer@sectionintoc {3}{Arithmetic}{12}{0}{3}
-\beamer@sectionintoc {4}{Exceptions}{19}{0}{4}
-\beamer@sectionintoc {5}{Simply Typed Lambda Calculus}{25}{0}{5}
-\beamer@sectionintoc {6}{Related Work \& Conclusion}{32}{0}{6}

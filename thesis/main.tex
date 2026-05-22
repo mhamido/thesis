@@ -3,132 +3,340 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Introduction} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\begin{itemize}
-    \item Language Specifications
-    \begin{itemize}
-      \item A specification is an informal description of a language's behavior (e.g, C++, the JLS, WASM spec)
-      \item It serves as the basis of an implementation.
-      \item A mismatch between spec and implementation is a bug.
-      \item Formal verification closes this gap: we \textit{prove} the implementation conforms to the spec.
-    \end{itemize}
-    \item Various forms of (Formal) Semantics of Programming Languages \cite{tapl}
-    \begin{itemize}
-      \item Natural (Big-Step) Semantics: relates expressions directly the values they evaluate to.
-      \item Operational (Small-Step) Semantics: describes computation as a sequence of reduction steps.
-      \item Denotational Semantics: maps programs to mathematical objects (e.g. the domain of agda values, functions, naturals, etc.)
-      \item Abstract Machines
-    \end{itemize}
-    \item Some forms of semantics are easier to define than others.
-    \begin{itemize}
-      \item Big-step semantics is often the most easiest to define, only define "productive" rules.
-      \item Small-step semantics is more verbose (context and reduction rules) but exposes fine-grained control over evaluation order and intermediate states.
-      \item Denotational semantics is often implemented as an interpreter in a meta-language (e.g. Agda), % todo: mention 
-    \end{itemize}
-    \item Thesis: Derive an implementation \textit{from} a specification.
-    \begin{itemize}
-      \item General strategy: start with a big-step semantics, then derive an abstract machine (operational semantics).
-      \item The derivation can be made rigorous: a certified interpreter or compiler extracted from a proof
-      \item Case studies: Arithmetic, Arithmetic with exceptions, and simple functional languages (STLC, PCF).
-    \end{itemize}
-    \item Corollary: study how different semantics are related (and can be derived).
-    \begin{itemize}
-      \item e.g.\ big-step $\iff$ small-step equivalence proofs.
-    %   \item % todo: diagram here.
-    \end{itemize}
-\end{itemize}
+Ideally, an implementation of a programming language faithfully realizes its specification.
+A mismatch between the two --- a program whose behaviour according to the specification differs from what a compiler or interpreter produces --- is in most cases a bug, leading programs to behave unpredictably across different environments, such as different operating systems or hardware architectures, or between different implementations.
+But how would one check that no such mismatch exists?
 
+In practice, specifications are written documents: the C++ standard, the Java Language Specification, and the WebAssembly specification all describe language behaviour in plain text, occasionally supplemented by evaluation rules.
+An implementation is built to match that description, and conformance is gauged through testing.
+A more systematic approach, such as the one used for WebAssembly \cite{wasm-spec}, is to provide a \textit{reference interpreter} alongside the specification: a new implementation is deemed compliant if it produces the same output as the reference on a shared test suite.
+Both approaches share the following flaw. Testing cannot prove the \textit{absence} of a mismatch between the specification and the implementation.
+A test suite exercises a finite set of inputs, while a specification makes claims about all possible programs; no matter how thorough the tests, some combination of language features may expose a discrepancy that no test has yet reached.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Related Work} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\cite{calculatingdependentlytypedcompilers}
-\cite{calculatingexceptionalmachines}
-\cite{easyas123}
-% \blindtext[2]
-% \cite{Tolk12}
+Formal verification addresses this by allowing it to be \textit{proven} that an implementation (by construction) conforms to the specification, covering all inputs and all cases simultaneously.
+In a \textit{dependently typed} language such as Agda \cite{vfpinagda}, types can encode propositions on values.
+A specification can therefore be expressed as a type (or more specifically, a relation), and a compliant implementation is one that can be used to construct a value inhabiting that type.
+The theoretical foundation for this is the \textit{Curry--Howard correspondence} \cite{propositionsastypes}: every logical proposition corresponds to a type, and a proof of that proposition corresponds to a value of that type.
 
+Formal programming language semantics are the basis of such proofs, originally described using pen and paper, but can be encoded in a proof assistant.
+Several forms of semantics are in common use \cite{tapl}.
+\textit{Natural} (big-step) semantics relates expressions directly to the values they evaluate to, and is generally the most concise style since only ``productive'' rules need to be stated.
+\textit{Operational} (small-step) semantics describes computation as a sequence of individual reduction steps; it is more verbose, requiring both context and reduction rules, but exposes fine-grained control over evaluation order and intermediate states.
+\textit{Denotational} semantics maps terms to a domain capable of expressing their ``meaning'' (e.g.\ functions, natural numbers), and is often realised as a functional interpreter.
+\textit{Abstract Machines} shows how a theoretical machine with a state and transitions between states can implement the semantics of a language.
+Assuming that the semantics for a language are consistent, they can be related, and in some cases one can be \textit{derived} from another.
+
+The central thesis of this work is that an implementation can be derived directly from a specification. We have chosen to focus on the derivation of a correct abstract machine from a big-step semantics. 
+We develop this strategy through three case studies on the following languages: arithmetic expressions, arithmetic with exceptions, and the simply typed lambda calculus (STLC).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Background} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-\section{Agda}
-\begin{itemize}
-    \item Agda is a dependently typed programming language and proof assistant.
-    \item The type system is capable of encoding specifications directly as types.
-  
-    % \item Proofs are values that inhabit these types. Type checker ensures their correctness.
-    % \item Undermining principles: propositions as types. A proof of a proposition is a program (value) of the corresponding type. \cite{vfpinagda}
-    \item Undermining principle: The Curry-Howard Correspondence \cite{propositionsastypes} (Propositions as Types), every proposition in logic corresponds to a type in a programming language.
-    \item Constructive (Intutionistic) logic: a proposition is true if we can construct a proof (value) of it.
-    \begin{itemize}
-      \item Truth: $P$ is true if there exists a value of type $P$. Trivially represented by the unit type $\top$.
-      \begin{minted}{agda}
-        data ⊤ : Set where
-          tt : ⊤
-      \end{minted}
-      \item Falsehood: $P$ is false if there are no values of type $P$. Canonically represented by the empty type $\bot$.
-      \begin{minted}{agda}
-        data ⊥ : Set where
-      \end{minted}
-      Note the absence of constructors for $\bot$.
-      If a value of type $\bot$ was obtained, any proposition could be proven (ex falso quodlibet).
-      \begin{minted}{agda}
-        ex-falso : {P : Set} → ⊥ → P
-        ex-falso ()
-      \end{minted}
-      Note the empty pattern match.
-      \item Implication: $P \implies Q$ corresponds to a function type $P \to Q$.
-      \item Negation: $\neg P$ corresponds to $P \to \bot$.
-      \begin{minted}{agda}
-        ¬_ : Set → Set
-        ¬ P = P → ⊥
-      \end{minted}
-      \item Conjunction: $P \land Q$ corresponds to a product type $P \times Q$
-      \begin{minted}{agda}
-        data _×_ (P Q : Set) : Set where
-          _,_ : P → Q → P × Q
-      \end{minted}
-      Generalization of product type: dependent pair ($\Sigma$-types) correspond to existential quantification ($\exists$).
-      \begin{minted}{agda}
-        data Σ (A : Set) (B : A → Set) : Set where
-          _,_ : (x : A) → B x → Σ A B
+% \section{Agda}
 
-        ∃ : {A : Set} → (A → Set) → Set
-        ∃ {A = A} P = Σ A P
-      \end{minted}
+Agda \cite{vfpinagda} is a dependently typed programming language and proof assistant.
+Readers familiar with Haskell will find Agda's syntax immediately recognisable. A notable surface difference is that Agda makes heavy use of Unicode and supports \textit{mixfix} operators, where underscores mark the argument positions.
+For example, \texttt{if\_then\_else\_} is a valid identifier that can be applied as \texttt{if b then x else y}.
 
-      \item Disjunction: $P \lor Q$ corresponds to a disjoint union type $P \uplus Q$.
-      \begin{minted}{agda}
-        data _⊎_ (P Q : Set) : Set where
-          inl : P → P ⊎ Q
-          inr : Q → P ⊎ Q
-      \end{minted}
-      
-    
-    \end{itemize}
-    %todo:
-    \item Brief example of a simple proof in Agda (e.g. commutativity of addition).
-\end{itemize}
+The fundamental difference, however, lies in the type system. Agda types may \textit{depend} on values: a function's return type can mention its argument, and a data type can be indexed by a value computed at runtime.
+In Agda, \texttt{Set} designates the type of types.\footnote{To avoid a paradox arising from \texttt{Set : Set}, types form a cumulative hierarchy: \texttt{Set} : \texttt{Set 1}, \texttt{Set 1} : \texttt{Set 2}, and so on.}.
 
+The theoretical basis for using Agda as a proof assistant is the \textit{Curry--Howard correspondence} \cite{propositionsastypes}, also known as ``Propositions as Types'': every logical proposition corresponds to a type, and a proof of that proposition is a value of that type.
+Agda's logic is \textit{constructive} (intuitionistic), meaning a proposition is true precisely when one can explicitly construct a witness (value) for it.
+The type checker then also serves as a "proof checker". That is, a well-typed program is a valid proof.
+
+The simplest proposition is truth, $\top$, represented by a type with exactly one constructor:
+\begin{minted}{agda}
+data ⊤ : Set where
+  tt : ⊤
+\end{minted}
+Because it is always possible to produce \texttt{tt}, $\top$ is trivially provable.
+
+Falsehood, $\bot$, is the opposite, a type with \textit{no} constructors at all:
+\begin{minted}{agda}
+data ⊥ : Set where
+\end{minted}
+There is no way to produce a value of type $\bot$, so it cannot be proven.
+If a value of type $\bot$ were somehow obtained, any proposition would follow, which is the principle of \textit{ex falso quodlibet}:
+\begin{minted}{agda}
+ex-falso : {P : Set} → ⊥ → P
+ex-falso ()
+\end{minted}
+The empty pattern \texttt{()} signals to Agda that there is no constructor to match.
+
+Implication ($P \Rightarrow Q$) corresponds to the function type $P \to Q$: given a proof of $P$, produce a proof of $Q$.
+Negation $\neg P$ is implication into falsehood:
+\begin{minted}{agda}
+¬_ : Set → Set
+¬ P = P → ⊥
+\end{minted}
+
+Conjunction $P \land Q$ corresponds to a product type. A proof of $P \land Q$ is a pair of proofs.
+\begin{minted}{agda}
+data _×_ (P Q : Set) : Set where
+  _,_ : P → Q → P × Q
+\end{minted}
+
+The dependent generalisation of this is the $\Sigma$-type, where the type of the second component may depend on the value of the first:
+\begin{minted}{agda}
+data Σ (A : Set) (B : A → Set) : Set where
+  _,_ : (x : A) → B x → Σ A B
+
+∃ : {A : Set} → (A → Set) → Set
+∃ {A = A} P = Σ A P
+\end{minted}
+This corresponds to existential quantification. A proof of $\exists x.\, P(x)$ is a pair of a concrete witness $x$ and a predicate $P$ that holds of it.
+Disjunction $P \lor Q$ is a disjoint union.
+\begin{minted}{agda}
+data _⊎_ (P Q : Set) : Set where
+  inl : P → P ⊎ Q
+  inr : Q → P ⊎ Q
+\end{minted}
+
+In contrast to classical logic, constructive logic does not admit the law of the excluded middle ($P \lor \neg P$), nor the double negation elimination ($\neg \neg P \Rightarrow P$).
+
+A key distinction in Agda data declarations is between \textit{parameters} and \textit{indices}.
+Both may appear in the signature of a \texttt{data} declaration. Parameters are listed before the colon and are fixed across all constructors.
+Indices are listed after the colon and different constructors may specialise them to different values.
+The canonical example is \texttt{Vec}, which is a list type whose length is tracked in its type:
+\begin{minted}{agda}
+data Vec (A : Set) : ℕ → Set where
+  []  : Vec A zero
+  _∷_ : A → Vec A n → Vec A (suc n)
+\end{minted}
+Here \texttt{A} is a (type) parameter, all constructors of \texttt{Vec A n} store elements of the same type \texttt{A}.
+The natural number after the colon is an index: the constructor for the empty list \texttt{[]} fixes it to \texttt{zero}, while \texttt{\_∷\_} advances it from \texttt{n} to \texttt{suc n}, so the length is tracked at the type level.
+This ability to encode invariants into indices is used extensively throughout this thesis.
+
+Propositional equality is definable as an indexed type. 
+The \texttt{\_≡\_} relation is indexed by two terms of the same type, with a single constructor \texttt{refl} specialising both indices to the same value, witnessing that a term is equal to itself:
+\begin{minted}{agda}
+data _≡_ {A : Set} (x : A) : A → Set where
+  refl : x ≡ x
+\end{minted}
+
+To make this concrete, consider a proof that addition of natural numbers is commutative.
+The definitions nearly mirror their Haskell counterparts.
+\begin{minted}{agda}
+data ℕ : Set where
+  zero : ℕ
+  suc  : ℕ → ℕ
+
+_+_ : ℕ → ℕ → ℕ
+zero  + m = m
+suc n + m = suc (n + m)
+\end{minted}
+Addition is defined by recursion on the first argument.
+
+Commutativity does not follow immediately from the definition, so we first prove two helper lemmas by structural induction.
+The \texttt{rewrite} keyword takes an equality proof of the form \texttt{t ≡ u} and performs a substitution in the current goal.
+\begin{minted}{agda}
+n+0≡n : (n : ℕ) → n + zero ≡ n
+n+0≡n zero    = refl
+n+0≡n (suc n) rewrite n+0≡n n = refl
+
+n+sm≡n : (n m : ℕ) → n + suc m ≡ suc (n + m)
+n+sm≡n zero    m = refl
+n+sm≡n (suc n) m rewrite n+sm≡n n m = refl
+\end{minted}
+In each inductive case, rewriting with the induction hypothesis reduces the goal to \texttt{refl}.
+The main theorem then follows:
+\begin{minted}{agda}
++-commutative : (n m : ℕ) → n + m ≡ m + n
++-commutative zero    m rewrite n+0≡n m = refl
++-commutative (suc n) m rewrite +-commutative n m = sym (n+sm≡n m n)
+\end{minted}
+
+One additional obligation Agda imposes beyond type correctness is \textit{termination}.
+Paired with \texttt{ex-falso}, a non-terminating function could be used to prove any proposition. Consider the following definition of a diverging function:
+\begin{minted}{agda}
+diverging : ⊥
+diverging = diverging
+\end{minted}
+To prevent this, Agda's termination checker requires that every recursive call is made on a structurally smaller argument.
+The termination checker may reject a definition that is actually terminating; in such cases a \texttt{\{-\# TERMINATING \#-\}} pragma can be used to disable the check, leaving the burden of proof to the programmer.
+
+\clearpage
 \section{Formalizing Language Semantics}
-\begin{itemize}
-    \item Structural Operational Semantics (Small-step): Relation on two terms, which demonstrates how the term is executed in an individual step. Reflexive-Transitive closure of the relation demonstrates the complete execution sequence to the final value (if one exists).
-    \item Natural Semantics (Big-step): Relation on a term and the value it evaluates to. The proof trees contain the evaluation of subterms.
-    \item Denotational Semantics: Map terms to domain (e.g. functions, naturals, etc.), often implemented as an interpreter in a meta-language (e.g. Agda).
-    % \item Abstract machines
-    \item Comparison
-    \begin{itemize}
-      \item Big-step semantics is often the most easiest to define, only define "productive" rules.
-      \item Non-terminating computations are not representable in big-step semantics, while small-step semantics can represent them through infinite reduction sequences.
-      \item Small-step semantics is fine-grained, allows the specification of evaluation order and intermediate terms during evaluation, but is more verbose (context $\xi$ and reduction $\beta$ rules).
-      \item Appropriate domain for a denotational semantics is not always obvious, and the meta-language may have different properties (e.g. totality) than the object language. i.e, explicit Closure vs implicit closure semantics for STLC. 
-    \end{itemize}
-\end{itemize}
+
+We use a variant of the Simply Typed Lambda Calculus (STLC) as our running example.
+The types of the language are natural numbers, booleans, and function types:
+\[
+  T \;::=\; \mathsf{Nat} \;\mid\; \mathsf{Bool} \;\mid\; T_1 \Rightarrow T_2
+\]
+
+The concrete representation of these definitions in Agda will appear in later chapters, namely,
+Chapter~\ref{chap:arith}, Chapter~\ref{chap:exceptions}, and Chapter~\ref{chap:stlc}.
+
+\subsection*{De Bruijn Indices}
+
+Named variables require care around $\alpha$-equivalence and capture-avoiding substitution.
+De Bruijn indices \cite{debrujin} address these issues by replacing variable names with indices. Each index represents how many $\lambda$-binders lie between the variable and the $\lambda$ that introduced it.
+For example, the identity function $\lambda x.\, x$ is written $\lambda\, 0$, and the constant function $\lambda x.\, \lambda y.\, x$ is written $\lambda\, \lambda\, 1$.
+
+Contexts record the types of bound variables:
+\[
+  \Gamma \;::=\; \emptyset \;\mid\; \Gamma, T
+\]
+% Variable membership $x : T \in \Gamma$ is defined by two rules: the innermost variable is always in scope (T \in \Gamma, T$), and any variable remains in scope after extending the context ($S\,x : T \in \Gamma, T'$ whenever $x : T \in \Gamma$).
+A well-typed term is expressed as a typing judgment $\Gamma \vdash T$, where $\Gamma$ lists the types of its free variables.
+The syntax is:
+\[
+  e \;::=\; {n} \;\mid\; {b} \;\mid\; e_1 \oplus e_2 \;\mid\; \mathsf{if}\;e\;\mathsf{then}\;e_1\;\mathsf{else}\;e_2 \;\mid\; \mathsf{Var}\,x \;\mid\; \lambda\,e \;\mid\; e_1 \cdot e_2
+\]
+where ${n}$ denotes a natural number, ${b}$ a boolean literal, $\lambda\,e$ a lambda abstraction (with the bound variable as De Bruijn index $0$ inside $e$), and $e_1 \cdot e_2$ is function application.
+
+\subsection*{Big-Step Semantics}
+
+Natural (big-step) semantics is a relation on a term and the value it evaluates to, with subderivations recording the evaluation of each subterm.
+Non-terminating computations are not representable within big-step semantics.
+
+We assign a value domain $\vDash : \mathsf{Type} \to \mathsf{Set}$ to each type:
+\[
+  \vDash T =
+  \begin{cases}
+    \mathbb{N}                    & T = \mathsf{Nat} \\
+    \mathbb{B}                    & T = \mathsf{Bool} \\
+    \mathsf{Closure}(T_1, T_2)   & T = T_1 \Rightarrow T_2
+  \end{cases}
+\]
+where a closure $\langle \delta, e \rangle$ pairs a saved environment $\delta$ with a term $e$.
+An environment $\delta : \Gamma$ maps each variable $x : T \in \Gamma$ to a value $v : \ \vDash T$.
+
+The evaluation judgment $\delta \vdash e \Downarrow v$ reads: under environment $\delta$, expression $e$ evaluates to value $v$.
+
+\begin{mathpar}
+  \inferrule*[right=\textsc{Nat}]{ }{\delta \vdash {n} \Downarrow n}
+
+  \inferrule*[right=\textsc{Bool}]{ }{\delta \vdash {b} \Downarrow b}
+
+  \inferrule*[right=\textsc{Var}]{ }{\delta \vdash \mathsf{Var}\,x \Downarrow \delta(x)}
+
+  \inferrule*[right=\textsc{Abs}]{ }{\delta \vdash \lambda\,e \Downarrow \langle \delta, e \rangle}
+
+  \inferrule*[right=\textsc{App}]{
+    \delta \vdash e_1 \Downarrow \langle \delta', e' \rangle \\
+    \delta \vdash e_2 \Downarrow v_2 \\
+    (\delta', v_2) \vdash e' \Downarrow v
+  }{\delta \vdash e_1 \cdot e_2 \Downarrow v}
+
+  \inferrule*[right=\textsc{Plus}]{
+    \delta \vdash e_1 \Downarrow n_1 \\
+    \delta \vdash e_2 \Downarrow n_2
+  }{\delta \vdash e_1 \oplus e_2 \Downarrow n_1 + n_2}
+
+  \inferrule*[right=\textsc{IfTrue}]{
+    \delta \vdash e \Downarrow \mathsf{true} \\
+    \delta \vdash e_1 \Downarrow v
+  }{\delta \vdash \mathsf{if}\;e\;\mathsf{then}\;e_1\;\mathsf{else}\;e_2 \Downarrow v}
+
+  \inferrule*[right=\textsc{IfFalse}]{
+    \delta \vdash e \Downarrow \mathsf{false} \\
+    \delta \vdash e_2 \Downarrow v
+  }{\delta \vdash \mathsf{if}\;e\;\mathsf{then}\;e_1\;\mathsf{else}\;e_2 \Downarrow v}
+\end{mathpar}
+
+\subsection*{Small-Step Semantics}
+
+Structural operational (small-step) semantics describes computation as a sequence of individual reduction steps.
+Unlike big-step semantics, it can capture fine-grained evaluation order and makes intermediate states explicit, but is more verbose: rules split into $\beta$-rules, which perform reductions, and $\xi$-rules (congruence rules), which specify a term reduction in some subterm.
+
+Values are now a \emph{syntactic} subset of expressions. ${n}$, ${b}$, and $\lambda\,e$ are the values (normal forms).
+The single-step reduction judgment $e \longrightarrow e'$ is defined by:
+\begin{mathpar}
+  \inferrule*[right=$\beta$-\textsc{App}]{v_2 : \ \vDash T_1}
+    {(\lambda\, e_1) \cdot v_2 \longrightarrow e_1[v_2 / 0]}
+
+  \inferrule*[right=$\beta$-\textsc{Plus}]{ }
+    {{n_1} \oplus {n_2} \longrightarrow {n_1 + n_2}}
+
+  \inferrule*[right=$\beta$-\textsc{IfTrue}]{ }
+    {\mathsf{if}\;{\mathsf{true}}\;\mathsf{then}\;e_1\;\mathsf{else}\;e_2 \longrightarrow e_1}
+
+  \inferrule*[right=$\beta$-\textsc{IfFalse}]{ }
+    {\mathsf{if}\;{\mathsf{false}}\;\mathsf{then}\;e_1\;\mathsf{else}\;e_2 \longrightarrow e_2}
+
+  \inferrule*[right=$\xi$-\textsc{App$_1$}]{e_1 \longrightarrow e_1'}
+    {e_1 \cdot e_2 \longrightarrow e_1' \cdot e_2}
+
+  \inferrule*[right=$\xi$-\textsc{App$_2$}]{v_1 : \vDash (T_1 \Rightarrow T_2) \\ e_2 \longrightarrow e_2'}
+    {v_1 \cdot e_2 \longrightarrow v_1 \cdot e_2'}
+
+  \inferrule*[right=$\xi$-\textsc{Plus$_1$}]{e_1 \longrightarrow e_1'}
+    {e_1 \oplus e_2 \longrightarrow e_1' \oplus e_2}
+
+  \inferrule*[right=$\xi$-\textsc{Plus$_2$}]{e_2 \longrightarrow e_2'}
+    {{n_1} \oplus e_2 \longrightarrow {n_1} \oplus e_2'}
+
+  \inferrule*[right=$\xi$-\textsc{If}]{e \longrightarrow e'}
+    {\mathsf{if}\;e\;\mathsf{then}\;e_1\;\mathsf{else}\;e_2 \longrightarrow \mathsf{if}\;e'\;\mathsf{then}\;e_1\;\mathsf{else}\;e_2}
+\end{mathpar}
+Note that unlike big-step semantics which constructs closure values, and looking up variables in the environment, the $\beta$-rule for application performs substitution directly on the body of the function.
+$e_1[v_2 / 0]$ denotes substituting $v_2$ for De Bruijn index $0$ in $e_1$, with the remaining indices shifted accordingly.
+The reflexive-transitive closure $\longrightarrow^*$ then captures complete evaluation sequences as a series of individual reduction steps.
+
+\subsection*{Denotational Semantics}
+
+Denotational semantics maps terms to a domain capable of expressing their meaning, and is often realised as an interpreter in a meta-language.
+Choosing the appropriate domain is not always straightforward.
+
+For a language with basic types, the value domain for each type is a corresponding Agda type, and the interpreter is a structurally recursive function over the expression tree.
+For languages such as STLC, there are two viable representations for function types. The natural choice is to interpret function types as Agda function types:
+\[ \llbracket A \Rightarrow B \rrbracket \;=\; \llbracket A \rrbracket \to \llbracket B \rrbracket \]
+Alternatively, function types can be represented as explicit closures $\langle \delta, e \rangle$, pairing the captured environment with a term to be evaluated when the function is applied.
+\[ \llbracket A \Rightarrow B \rrbracket \;=\; \mathsf{Closure}\,A\,B \]
+
+
+The interpreter takes an environment $\delta$ assigning a value of type $\llbracket T \rrbracket$ to each variable of type $T$ in $\Gamma$, and returns a value.
+A lambda abstraction maps to an Agda function that extends the environment and calls the interpreter on the body; application evaluates the function position to a closure $\langle \delta', e' \rangle$, evaluates the argument to $v$, and then calls the interpreter on the stored body $e'$ under the extended environment $(\delta', v)$.
 
 \section{Deriving Abstract Machines}
 
+Consider an interpreter as a recursive function that traverses the expression tree: evaluating a compound expression requires evaluating each subexpression in some defined order (typically left-to-right).
+For example, in an addition expression, the left operand is evaluated before the right, and the right before the sum is returned to the caller. 
+Each recursive call to the interpreter suspends computation at the call site until the sub-result is available, after which the rest of the subexpressions can be evaluated.
+
+
+These suspended computations can be made explicit as \emph{frames}.
+A frame records the surrounding context---what computation remains once a particular subexpression has yielded a value---while leaving a hole for that value.
+
+For addition, entering the left operand pushes a frame of the form $(\circ + e_2)$; once the left value $v_1$ is known, that frame is replaced by $(v_1 + \circ)$, which awaits the right operand.
+The collection of outstanding frames forms a stack.
+
+The interpreter can now be structured as an abstract machine. The state of the machine is a stack of frames, and the current expression being evaluated, or a value being returned. 
+Transition rules decompose the expression, push a frame, and select a subexpression to evaluate next.
+A transition from a return state pops the top frame, fills its hole with the returned value, and either produces a new return state or an eval state for the remaining subexpression.
+The machine halts when it reaches a return state with an empty stack.
+
+Once a machine is defined, two properties must be proven for the machine to be consistent with the big-step semantics:
+
+\begin{itemize}
+\item  \textit{Completeness}: if $e \Downarrow v$, then for any stack $\mathit{stk}$, the machine started evaluating $e$ with stack $\mathit{stk}$ reaches the return state ${stk} \downarrow v$.
+
+\item  \textit{Correctness}: if the machine started evaluating $e$ with an \emph{empty} stack, it reaches a final return state carrying $v$, then $e \Downarrow v$.
+\end{itemize}
+
+%todo:review
+\subsection*{Proof Strategy: A Chain of Equivalences}
+
+Rather than proving each pair of semantics equivalent in isolation, we also use a \emph{chain of equivalences} to relate most (if not all) forms of semantics.
+\[
+  \text{Denotational}
+  \;\longleftrightarrow\;
+  \text{Big-Step}
+  \;\longleftrightarrow\;
+  \text{Machine}
+  \;\longleftrightarrow\;
+  \text{Small-Step}
+\]
+
+Each link in the chain is proved independently. Transitivity then yields equivalence between any two points.
+In the event that a direct proof is difficult, it can be obtained by composing the relevant links.
+This is similar to how \emph{intermediate representations} in a compiler perform incremental transformations --- rather than translating directly from source to assembly in a single step.
 
 \chapter{Arithmetic}
+\label{chap:arith}
 
 \section{Syntax and Types}
 
@@ -142,7 +350,7 @@ data Type : Set where
 ⊨ Nat  = ℕ
 ⊨ Bool = 𝔹
 
-data ⊢_ where
+data ⊢_ : Type → Set where
     `_              : ⊨ T → ⊢ T
     _⊞_             : ⊢ Nat → ⊢ Nat → ⊢ Nat
     test            : ⊢ Nat → ⊢ Bool
@@ -153,11 +361,16 @@ test' zero    = true
 test' (suc n) = false
 \end{minted}
 
-Note that the syntax is intrinsically typed: only well-typed expressions can be represented, and that we cannot construct non-terminating expressions. 
+The expression datatype \texttt{⊢\_} is \textit{intrinsically typed}: it is \textit{indexed} by a \texttt{Type}, where each constructor specifies the type of the expression it produces.
+A literal "quote" \texttt{`\_} embeds a value of type $T$ directly into the syntax at matching index $T$.
+As a consequence, every term that can be constructed must be well typed; ill-typed programs are not representable.
+Note that in the latter two constructors, the types enforce certain constraints. For example, that the condition of an \texttt{if}-expression must be an expression with a boolean type, and that both branches must have the same type.
 
 \section{Big-Step Semantics}
 
-The big-step semantics relates expressions to their values:
+The big-step semantics is modelled as an inductive relation between expressions and their evaluated values.
+Each rule corresponds to a constructor of the relation.
+
 \begin{minted}{agda}
 data _⇓_ : ⊢ T → ⊨ T → Set where
     `_ : (v : ⊨ T) → (` v) ⇓ v
@@ -177,59 +390,206 @@ The if-then-else expression evaluates the condition first, and then evaluates ei
 
 
 Evaluation is \textit{deterministic}: if an expression evaluates to two different values, they must be equal.
+% todo: talk about proof.
 \begin{minted}{agda}
 deterministic : ∀ {e : ⊢ T} {v₁ v₂ : ⊨ T}
     → e ⇓ v₁ → e ⇓ v₂ → v₁ ≡ v₂
 \end{minted}
-This is proven by structural induction on the evaluation derivations.
+This is proven by structural induction on the evaluation relation.
+In the case of values, both values must be the same by injectivity of the constructor.
+In the case of addition, we perform induction on the operands, to show that the same operands must evaluate to the same values, and therefore the same sum.
+In the case of conditionals, we show that the condition must evaluate to the same boolean. If that is not the case, we would have an assumption {$false \equiv true$} which can be discharged by pattern matching on it.
+Finally, we show that the same branch must be taken in both evaluations, and that the same value is returned from that branch.
 
+% todo: talk about proof.
 Every expression evaluates to \textit{some} value.
 \begin{minted}{agda}
 total : ∀ (e : ⊢ T) → ∃ (λ v → e ⇓ v)
 \end{minted}
 
+The proof for total is similar; but we perform structural induction on the expression instead, and produce the value and the derivation tree from recursive calls onto the subexpressions.
+
 \section{Small-Step Semantics}
 
-The small-step semantics describes computation as a sequence of reduction steps. 
-Context rules ($\xi$-rules) specify where reduction can occur in one of the subterms, while $\beta$-rules perform the actual computation:
+% The small-step semantics describes computation as a sequence of reduction steps.
+% Context rules ($\xi$-rules) specify where reduction may occur inside a subterm; $\beta$-rules perform the actual computation once both operands are values.
+The reduction relation $e \longrightarrow e'$ has the following rules:
+
+\begin{mathpar}
+  \inferrule*[right=$\beta$-{\normalfont\texttt{⊞}}]{ }
+    {(\mathtt{`}\,n_1) \mathbin{\mathtt{⊞}} (\mathtt{`}\,n_2)
+     \longrightarrow \mathtt{`}\,(n_1 + n_2)}
+
+  \inferrule*[right=$\beta$-{\normalfont\texttt{test}$_0$}]{ }
+    {\mathtt{test}\,(\mathtt{`}\,0) \longrightarrow \mathtt{`}\,\mathtt{true}}
+
+  \inferrule*[right=$\beta$-{\normalfont\texttt{test}$_+$}]{ }
+    {\mathtt{test}\,(\mathtt{`}\,(\mathtt{suc}\,n)) \longrightarrow \mathtt{`}\,\mathtt{false}}
+
+  \inferrule*[right=$\beta$-{\normalfont\texttt{if-then}}]{ }
+    {\mathtt{if}\;(\mathtt{`}\,\mathtt{true})\;\mathtt{then}\;e_1\;\mathtt{else}\;e_2
+     \longrightarrow e_1}
+
+  \inferrule*[right=$\beta$-{\normalfont\texttt{if-else}}]{ }
+    {\mathtt{if}\;(\mathtt{`}\,\mathtt{false})\;\mathtt{then}\;e_1\;\mathtt{else}\;e_2
+     \longrightarrow e_2}
+
+  \inferrule*[right=$\xi$-{\normalfont\texttt{⊞}$_1$}]
+    {e_1 \longrightarrow e_1'}
+    {e_1 \mathbin{\mathtt{⊞}} e_2 \longrightarrow e_1' \mathbin{\mathtt{⊞}} e_2}
+
+  \inferrule*[right=$\xi$-{\normalfont\texttt{⊞}$_2$}]
+    {e_2 \longrightarrow e_2'}
+    {(\mathtt{`}\,n) \mathbin{\mathtt{⊞}} e_2 \longrightarrow (\mathtt{`}\,n) \mathbin{\mathtt{⊞}} e_2'}
+
+  \inferrule*[right=$\xi$-{\normalfont\texttt{test}}]
+    {e \longrightarrow e'}
+    {\mathtt{test}\,e \longrightarrow \mathtt{test}\,e'}
+
+  \inferrule*[right=$\xi$-{\normalfont\texttt{if}}]
+    {e \longrightarrow e'}
+    {\mathtt{if}\;e\;\mathtt{then}\;e_1\;\mathtt{else}\;e_2
+     \longrightarrow \mathtt{if}\;e'\;\mathtt{then}\;e_1\;\mathtt{else}\;e_2}
+\end{mathpar}
+
+
+Complete evaluation is captured by the reflexive-transitive closure $\longrightarrow^*$, defined by a \texttt{base} case (zero steps) and a \texttt{step} constructor that prepends one reduction.
+The equivalence proof between big-step and small-step semantics is defined as so:
 \begin{minted}{agda}
-data _⇾_ : ⊢ T → ⊢ T → Set where
-    ξ-⊞₁ : e₁ ⇾ e₁' → (e₁ ⊞ e₂) ⇾ (e₁' ⊞ e₂)
-    ξ-⊞₂ : e₂ ⇾ e₂' → (` n₁ ⊞ e₂) ⇾ (` n₁ ⊞ e₂')
-    β-⊞ : (` n₁ ⊞ ` n₂) ⇾ ` (n₁ + n₂)
-    ξ-test : e ⇾ e' → (test e) ⇾ (test e')
-    β-test-zero : test (` 0) ⇾ ` true
-    β-test-suc : test (` suc n) ⇾ ` false
-    ξ-if : e ⇾ e' → (if e then e₁ else e₂) ⇾ (if e' then e₁ else e₂)
-    β-if-then : (if ` true then e₁ else e₂) ⇾ e₁
-    β-if-else : (if ` false then e₁ else e₂) ⇾ e₂
+simulate : ∀ {T : Type} {e : ⊢ T} {v : ⊨ T} → e ⇓ v → e ⇾⃰ ` v
+simulate (` v)                  = base
+simulate (p₁ ⊞ p₂)              =
+    ⇾⃰-transitive (⇾⃰-⊞₁ (simulate p₁))
+    (⇾⃰-transitive (⇾⃰-⊞₂ (simulate p₂))
+    (step β-⊞ base))
+simulate (test {n = zero}    p) = 
+    ⇾⃰-transitive (⇾⃰-test (simulate p)) 
+    (step β-test-zero base)
+simulate (test {n = suc _}   p) = 
+    ⇾⃰-transitive (⇾⃰-test (simulate p)) 
+    (step β-test-suc  base)
+simulate (if-then pe p₁)        =
+    ⇾⃰-transitive (⇾⃰-if (simulate pe))
+    (step β-if-then (simulate p₁))
+simulate (if-else pe p₂)        =
+    ⇾⃰-transitive (⇾⃰-if (simulate pe))
+    (step β-if-else (simulate p₂))
 \end{minted}
 
-The reflexive-transitive closure $\to^*$.
+Note the use of the $\xi$-rules lifted to the reflexive-transitive closure $\longrightarrow^*$. Each case effectively applies the relevant $\xi$-rule in the expected evaluation order.
+The definition of these lifted $\xi$-rules is straightforward: they are defined by induction on the relation, with a base case involving no further steps, and in the inductive case, we apply the unlifted $\xi$-rule to the first reduction step, and then recursively
+perform the lifted $\xi$-rule on the remaining steps.
 \begin{minted}{agda}
-data _⇾⃰_ : ⊢ T → ⊢ T → Set where
-    base  : e ⇾⃰ e
-    step  : e₁ ⇾ e₂ → e₂ ⇾⃰ e₃ → e₁ ⇾⃰ e₃
+⇾⃰-⊞₁ : ∀ {e₁ e₁' e₂ : ⊢ Nat} → e₁ ⇾⃰ e₁' → (e₁ ⊞ e₂) ⇾⃰ (e₁' ⊞ e₂)
+⇾⃰-⊞₁ base       = base
+⇾⃰-⊞₁ (step r p) = step (ξ-⊞₁ r) (⇾⃰-⊞₁ p)
+
+⇾⃰-⊞₂ : ∀ {n : ℕ} {e₂ e₂' : ⊢ Nat} → e₂ ⇾⃰ e₂' → (` n ⊞ e₂) ⇾⃰ (` n ⊞ e₂')
+⇾⃰-⊞₂ base       = base
+⇾⃰-⊞₂ (step r p) = step (ξ-⊞₂ r) (⇾⃰-⊞₂ p)
 \end{minted}
+
+The other direction of the equivalence is defined by induction on the small-step relation, with a case for each $\beta$-rule, and a case for each $\xi$-rule that applies the induction hypothesis to the first reduction step, and then uses transitivity to concatenate the resulting big-step derivation with the one corresponding to the $\beta$-rule.
+\begin{minted}{agda}
+simulateᴿ : ∀ {T : Type} {e : ⊢ T} {v : ⊨ T} → e ⇾⃰ ` v → e ⇓ v
+\end{minted}
+
+The proof relies on the following lemmas:
+\begin{itemize}
+  \item The big-step relation is \textbf{total}. There always exists some value $v$ that an expression evaluates to, and the derivation tree for that evaluation from $e$ to that $v$.
+  \item The small-step relation is \textbf{deterministic}. If, in a single step there are two derivations from the same expression $e \longrightarrow^* e_1$ and $e \longrightarrow^* e_2$, then $e_1$ and $e_2$ must be the same expression. This is trivial by pattern matching on both derivations. 
+  \item The transitive closure of the step relation is \textbf{confluent}, that is, for two derivations $e \longrightarrow^* e_1$ and $e \longrightarrow^* e_2$, and assuming $e_1$ and $e_2$ are values (i.e., there is no expression $e'$ such that either $e_1$ or $e_2$ can step to $e'$): then $e_1$ and $e_2$ must be equal.
+  \begin{minted}{agda}
+  ⇾⃰-confluence : ∀ {T : Type} {e e₁ e₂ : ⊢ T}
+  → e ⇾⃰ e₁ → e ⇾⃰ e₂
+  → (∀ {e' : ⊢ T} → e₁ ⇾ e' → ⊥)
+  → (∀ {e' : ⊢ T} → e₂ ⇾ e' → ⊥)
+  → e₁ ≡ e₂
+⇾⃰-confluence base         base         _   _   = reflexive
+⇾⃰-confluence base         (step r _)   ns₁ _   = ex-falso (ns₁ r)
+⇾⃰-confluence (step r _)   base         _   ns₂ = ex-falso (ns₂ r)
+⇾⃰-confluence (step r₁ p₁) (step r₂ p₂) ns₁ ns₂ rewrite det r₁ r₂ =
+    ⇾⃰-confluence p₁ p₂ ns₁ ns₂
+  \end{minted}
+
+  The proof for this lemma is by induction on both derivations. 
+  In the event that either of the derivations is a base case, but the other is not, then we have contradicted the assumption that the resulting expression is a value, and we can discharge the case by ex-falso.
+  In the case that both derivations are a step, we can use the determinism of the single-step relation to show that the first reduction step must be the same in both derivations, followed by the induction hypothesis on the remaining steps.
+\end{itemize}
+
+Finally, we can prove \texttt{simulateᴿ}. 
+\begin{minted}{agda}
+simulateᴿ : ∀ {T : Type} {e : ⊢ T} {v : ⊨ T} → e ⇾⃰ ` v → e ⇓ v
+simulateᴿ {e = e} {v = v} tr = 
+    let (v' ﹐ p) = total e 
+        
+        tr' : e ⇾⃰ (` v')
+        tr' = simulate p
+
+        eq : (` v') ≡ (` v)
+        eq = ⇾⃰-confluence tr' tr ¬step-` ¬step-`
+    in subst (e ⇓_) (`-inj eq) p
+\end{minted}
+
+Given that the big-step semantics is total, we can obtain the derivation tree for $e$ which results in a value $v'$, as well as a small-step 
+sequence of reduction steps from $e \longrightarrow^* v'$ by simulating the big-step derivation. 
+The goal is now to show that the value produced by the big-step $v'$ is the same as the value $v$ produced by the small-step semantics.
+We can apply the confluence lemma to deduce that $v'$ and $v$ are the same value, since both are values reachable from $e$. The latter is realized by the following helper lemma.
+\begin{minted}{agda}
+¬step-` : ∀ {T : Type} {v : ⊨ T} {e' : ⊢ T} → (` v) ⇾ e' → ⊥
+¬step-` ()
+\end{minted}
+Since there is no constructor in relation that further reduces a value, the case is discharged by Agda.
 
 \section{Denotational Semantics}
 
 The denotational approach interprets expressions directly as values.
 \begin{minted}{agda}
-_⟦_⟧ : ⊨ T → ⊢ T → ⊨ T
-δ ⟦ ` v ⟧               = v
-δ ⟦ e₁ ⊞ e₂ ⟧          = δ ⟦ e₁ ⟧ + δ ⟦ e₂ ⟧
-δ ⟦ test e ⟧            = test' (δ ⟦ e ⟧)
-δ ⟦ if e then e₁ else e₂ ⟧ with δ ⟦ e ⟧
-... | true  = δ ⟦ e₁ ⟧
-... | false = δ ⟦ e₂ ⟧
+⟦_⟧ : ∀ {T} → ⊢ T → ⊨ T
+⟦ ` v ⟧                   = v
+⟦ e₁ ⊞ e₂ ⟧              = ⟦ e₁ ⟧ + ⟦ e₂ ⟧
+⟦ test e ⟧                = test' ⟦ e ⟧
+⟦ if e then e₁ else e₂ ⟧ with ⟦ e ⟧
+... | true  = ⟦ e₁ ⟧
+... | false = ⟦ e₂ ⟧
+\end{minted}
+
+The equivalence theorems between big-step and the denotational semantics state that if $e \Downarrow v$, then $\llbracket e \rrbracket \equiv v$, and vice versa.
+\begin{minted}{agda}
+simulate : ∀ {T : Type} {e : ⊢ T} {v : ⊨ T} → e ⇓ v → ⟦ e ⟧ ≡ v
+\end{minted}
+
+The first direction of the proof is simple: we perform induction on the derivation tree and show that the interpreter produces the same value by reflexivity. 
+For compound expressions, we rewrite using the induction hypothesis on the subexpressions.
+
+\begin{minted}{agda}
+simulate (` v) = reflexive
+simulate (e₁ ⊞ e₂) rewrite simulate e₁ | simulate e₂ = reflexive
+simulate (test e) rewrite simulate e = reflexive
+simulate (if-then e₁ e₂) rewrite simulate e₁ | simulate e₂ = reflexive
+simulate (if-else e₁ e₂) rewrite simulate e₁ | simulate e₂ = reflexive
+\end{minted}
+
+The other direction of the proof is similar, but we construct the derivation tree using the corresponding constructor for each case.
+\begin{minted}{agda}
+
+simulateᴿ : ∀ {T : Type} (e : ⊢ T) {v : ⊨ T} → ⟦ e ⟧ ≡ v → e ⇓ v
+
+simulateᴿ (` x) reflexive = ` x
+simulateᴿ (e₁ ⊞ e₂) p with ⟦ e₁ ⟧ in eq₁ | ⟦ e₂ ⟧ in eq₂ | p
+... | v₁ | v₂ | reflexive = simulateᴿ e₁ eq₁ ⊞ simulateᴿ e₂ eq₂
+
+simulateᴿ (test e) p with ⟦ e ⟧ in eq | p
+... | v | reflexive = test (simulateᴿ e eq)
+
+simulateᴿ (if e then e₁ else e₂) p with ⟦ e ⟧ in eq | p
+... | true  | reflexive = if-then (simulateᴿ e eq) (simulateᴿ e₁ reflexive)
+... | false | reflexive = if-else (simulateᴿ e eq) (simulateᴿ e₂ reflexive)
 \end{minted}
 
 \section{Abstract Machine}
 
-We systematically derive an abstract machine from the big-step semantics. 
-The machine uses a stack of frames to track evaluation contexts. 
-For each construct in the language, we define corresponding frames that represent the which subterm is being evaluated (the hole) and what context remains to be evaluated after it.
+The following definitions show how to derive an abstract machine from the big-step semantics using the approach briefly described in the previous chapter.
 
 \begin{minted}{agda}
 data Hole : Set where
@@ -239,13 +599,22 @@ data Frame : Type → Type → Set where
     _𝚎𝚕𝚜𝚎_   : ⊢ T → ⊢ T → Frame T Bool
     _⊞₀_     : Hole → ⊢ Nat → Frame Nat Nat
     _⊞₁_     : ⊨ Nat → Hole → Frame Nat Nat
+  test     : Hole → Frame Bool Nat
+\end{minted}
 
+The Frame data type is indexed by the resulting type of the term, and the type of the subterm pending evaluation (where the hole is) respectively.
+Note that the frame for addition has two variants: one for when the left operand is being evaluated (thus replaced by a hole), and one for when the right operand is being evaluated, with the left value already known.
+
+For completeness, we require a stack of frames to represent evaluation within nested subterms. 
+This is represented as the following datatype, where the type parameter \texttt{Answer} represents the type of the final result of the computation. The remaining index is 
+
+\begin{minted}{agda}
 data Stack (Answer : Type) : Type → Set where
     []   : Stack Answer Answer
     _∷_  : Stack Answer T₁ → Frame T₁ T₂ → Stack Answer T₂
 \end{minted}
 
-The representation on the stack keeps track of the type of the (sub-)terms being evaluated.
+The state of the abstract machine is then a pair of a stack and a mode, where it is in the process of evaluating an expression (↑) or returning a value (↓).
 
 \begin{minted}{agda}
 data State (Answer : Type) : Set where
@@ -253,53 +622,66 @@ data State (Answer : Type) : Set where
     ⊢_↑_ : Stack Answer T → ⊢ T → State Answer
 \end{minted}
 
-The machine operates in two modes while carrying a stack of frames, the eval mode (↑) where it evaluates an expression, and returning mode (↓) where it returns a value.
 
-The machine transitions between states and mimics how an interpreter would evaluate expressions.
+The machine transitions between states and mimics how an interpreter would evaluate subexpressions in order.
 \begin{minted}{agda}
 data _⇾_ : State Answer → State Answer → Set where
   step-`   : ⊢ stack ↑ ` v ⇾ ⊢ stack ↓ v
   step-⊞₁  : ⊢ stack ↑ (e₁ ⊞ e₂) ⇾ ⊢ stack ∷ (◌ ⊞₀ e₂) ↑ e₁
   step-⊞₂  : ⊢ stack ∷ (◌ ⊞₀ e₂) ↓ v₁ ⇾ ⊢ stack ∷ (v₁ ⊞₁ ◌) ↑ e₂
   step-⊞₃  : ⊢ stack ∷ (v₁ ⊞₁ ◌) ↓ v₂ ⇾ ⊢ stack ↓ (v₁ + v₂)
+  step-test : ⊢ stack ↑ (test e) ⇾ ⊢ stack ∷ test ◌ ↑ e
+  step-test₁ : ⊢ stack ∷ test ◌ ↓ n ⇾ ⊢ stack ↓ test' n
   step-𝚒𝚏  : ⊢ stack ↑ (if e then e₁ else e₂) ⇾ 
              ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↑ e
   step-𝚝𝚑𝚎𝚗 : ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↓ true ⇾ ⊢ stack ↑ e₁
   step-𝚎𝚕𝚜𝚎 : ⊢ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) ↓ false ⇾ ⊢ stack ↑ e₂
 \end{minted}
 
-% % TODO: fix this. Minted throws an error.
-% The machine is \textit{correct}: if under the big-step semantics evaluates $e \Downarrow v$, then the machine (initially with an empty stack) reduces to a final state containing $v$.
-% % \begin{minted}{agda}
-% % correct' : ∀ (e : ⊢ T) (v : ⊨ T) (stack : Stack Answer T)
-% %     → e ⇓ v
-% %     → (⊢ stack ↑ e) ⇾⃰ (⊢ stack ↓ v)
-% % \end{minted}
+Evaluating a value simply transitions to a return state with the same value.
+Evaluating an addition expression pushes a frame for the left operand, and transitions to a state evaluating the left operand, with a frame containing the right operand pushed onto the stack.
+When the machine is in a state where the left operand has been evaluated, the frame is updated to record that the left operand has been evaluated, and the machine transitions to evaluating the right operand.
+When the right operand returns a value, the machine pops the frame and transitions to returning the sum of the two operands.
+The unary operator \texttt{test} follows the same pattern with a dedicated frame:
+\texttt{step-test} pushes \texttt{test ◌} and evaluates the argument, then
+\texttt{step-test₁} computes \texttt{test' n} when the argument returns.
 
-% % \begin{minted}{agda}
-% % correct : ∀ (e : ⊢ T) (v : ⊨ T) (stack : Stack Answer T)
-% %     → e ⇓ v
-% %     → (⊢ [] ↑ e) ⇾⃰ (⊢ [] ↓ v)
-% % correct e v stack ev = correct' e v stack ev
-% % \end{minted}
+% The machine is \textit{complete}: for any expression $e$, value $v$, and stack \texttt{stack}, if $e \Downarrow v$ then the machine reduces from the eval state $(\mathtt{stack},\,e)$ to the return state $(\mathtt{stack},\,v)$.
+The proof for completeness is by induction on the big-step derivation; each constructor corresponds to one or more machine transitions.
+Because the machine pushes frames when entering subexpressions, the induction hypothesis must generalise over an arbitrary stack rather than just the empty stack.
+\begin{minted}{agda}
+  complete : ∀ (e : ⊢ T) (v : ⊨ T) (stack : Stack Answer T)
+    → e ⇓ v
+    → (⊢ stack ↑ e) ⇾⃰ (⊢ stack ↓ v)
+\end{minted}
 
-% The machine is also \textit{complete}: if the machine reduces to a final state containing $v$, then under the big-step semantics evaluates $e \Downarrow v$.
+Here is an example of one of the cases.
+\begin{minted}{agda}
+complete (if e then e₁ else e₂) v stack (if-then p p₁) =
+    step step-𝚒𝚏
+    (⇾⃰-transitive (complete e _ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) p)
+    (step step-𝚝𝚑𝚎𝚗
+    (complete e₁ v stack p₁)))
+complete (if e then e₁ else e₂) v stack (if-else p p₂) =
+    step step-𝚒𝚏
+    (⇾⃰-transitive (complete e _ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) p)
+    (step step-𝚎𝚕𝚜𝚎
+    (complete e₂ v stack p₂)))
+\end{minted}
 
+In a single step, the machine begins by evaluating an expression of the form $\texttt{if } e \texttt{ then } e_1 \texttt{ else } e_2$, then transitions to a state evaluating $e$ and pushes a stack frame containing the two branches $e_1 \texttt{ else } e_2$.
+Inductively, it should be the case that the machine reduces to a return state with a boolean value $v$ and evidence $p$ for $e \Downarrow v$.
+The machine performs a step (either \texttt{step-then} or \texttt{step-else}) to select the appropriate branch, and transitions to evaluation mode for that branch.
+Then inductively, we show that evaluating the selected branch reduces to a return state with the final value and evidence for that branch's evaluation.
 
-\section{Equivalence of Semantics}
-
-To formalize the relationship between semantics, we prove equivalence theorems ensuring that all approaches are logically equivalent.
-% TODO: tikz diagram here.
-
-\subsection{Big Step $\iff$ Small Step}
-\subsection{Big Step $\iff$ Denotational}
-\subsection{Deriving the Rest}
-
+The machine is also \textit{correct}: if the machine reaches the return state $(\mathtt{[]},\,v)$ from the initial eval state $(\mathtt{[]},\,e)$, then $e \Downarrow v$.
+The proof is structurally identical to the proof for the equivalence between big-step and small-step semantics, but using the completeness and confluence of the transistion relation instead of the big-step to small-step direction.
 
 
 \chapter{Exceptions}
+\label{chap:exceptions}
 
-We extend the arithmetic language with exceptions. Unlike the base language where every expression terminates, we now introduce the possibility of runtime errors. The fundamental change is that expressions may either evaluate to a value \textit{or} raise an exception.
+The language of arithmetic expressions is extended with exceptions. Unlike the base language where every expression terminates with a value, we now introduce the possibility of exceptional values.
 
 \section{Syntax}
 
@@ -309,14 +691,14 @@ data Exception : Set where
     err : Exception
 
 data ⊢_ where
-    `_              : ⊨ T → ⊢ T
-    _⊞_             : ⊢ Nat → ⊢ Nat → ⊢ Nat
-    test            : ⊢ Nat → ⊢ Bool
-    if_then_else_   : ⊢ Bool → ⊢ T → ⊢ T → ⊢ T
-    -- Exception handling
+    ...
     throw           : Exception → ⊢ T
     try_catch_      : ⊢ T → (Exception → ⊢ T) → ⊢ T
 \end{minted}
+
+For the purpose of this thesis, we consider a simple exception type with a single constructor \texttt{err}. However, it is possible to extend this to a more complex exception type carrying a tag and payload. 
+A tagged exception type would allow the handler to inspect the tag and re-raise if the tag does not match, simply by having the handler return \texttt{throw ex} on an unhandled tag.
+
 
 \section{Big-Step Semantics}
 
@@ -327,95 +709,691 @@ data Result (T : Type) : Set where
     return  : ⊨ T → Result T
     raise   : Exception → Result T
 
+\end{minted}
+
+Our relation now relates expressions to \texttt{Result}s, rather than just values.
+For convenience we introduce aliases for the two outcomes:
+\begin{itemize}
+    \item $e \Downarrow v := e \Downarrow^r \operatorname{return}\ v$
+    \item $e \Uparrow ex := e \Downarrow^r \operatorname{raise}\ ex$
+\end{itemize}
+
+The pattern throughout the relation is uniform: every construct in the language that evaluates a subterm has one rule for the case where the subterm returns a value, and a separate rule for the case where it propagates an exception.
+For example, in the case of addition, if either operand raises an exception, then the whole expression raises that exception; otherwise, it returns the sum of the two operands.
+
+\begin{minted}{agda}
 data _⇓ʳ_ : ⊢ T → Result T → Set where
     `_ : (v : ⊨ T) → (` v) ⇓ʳ return v
     
-    _⊞_ 
-      : e₁ ⇓ʳ r₁ → e₂ ⇓ʳ r₂ 
-      → (e₁ ⊞ e₂) ⇓ʳ (liftA2 (+) r₁ r₂)
-    
+    _⊞_     : e₁ ⇓ n₁ → e₂ ⇓ n₂
+            → (e₁ ⊞ e₂) ⇓ (n₁ + n₂)
+    ⊞-exn₁  : e₁ ⇑ ex → (e₁ ⊞ e₂) ⇑ ex
+    ⊞-exn₂  : e₁ ⇓ n₁ → e₂ ⇑ ex → (e₁ ⊞ e₂) ⇑ ex
+
+    test        : e ⇓ n  → (test e) ⇓ test' n
+    test-raise  : e ⇑ ex → (test e) ⇑ ex
+
+    if-raise : e ⇑ ex → (if e then e₁ else e₂) ⇑ ex
+  
     throw-rule : throw ex ⇓ʳ raise ex
 
-    try-return 
-        : e ⇓ʳ return v 
-        → (try e catch h) ⇓ʳ return v
-    
-    try-catch : e ⇓ʳ raise ex 
-        → h ex ⇓ʳ r 
-        → (try e catch h) ⇓ʳ r
+    try-return  : e ⇓ v → (try e catch h) ⇓ v
+    try-catch   : e ⇑ ex → h ex ⇓ʳ r → (try e catch h) ⇓ʳ r
 \end{minted}
 
-Definitions for convenience:
-\begin{itemize}
-    \item $e \Downarrow v := e \Downarrow^r \operatorname{return} v$
-    \item $e \Uparrow ex := e \Downarrow^r \operatorname{raise} ex$
-\end{itemize}
+
+The \texttt{try-return} rule simply returns the value of the body when no exception is raised.
+The \texttt{try-catch} rule applies when the body raises an exception: it passes the exception to the handler $h$ and continues with the result of evaluating the handler.
+The result of the handler is itself a \texttt{Result}, so the handler may either succeed or raise a further exception; which would then propagate up the expression tree.
+
+The proof for totality is extended with the following cases.
+\begin{minted}{agda}
+...
+total (throw ex) = raise ex ﹐ throw-rule
+total (try e catch h) with total e
+... | return v  ﹐ p = return v ﹐ try-return p
+... | raise ex  ﹐ p = let (r ﹐ q) = total (h ex) in r ﹐ try-catch p q
+\end{minted}
+
+When an exception is raised, the result produced is the exception, with the evidence for that result being the \texttt{throw-rule} constructor.
+When evaluating a \texttt{try-catch}, we first evaluate the body $e$, if it returns a value, then simply return the value, with the evidence as \texttt{try-return} rule; if it raises an exception, then we evaluate the handler $h$ with that exception as an argument, and the result of evaluating the handler is the result of evaluating the entire expression.
 
 \section{Small-Step Semantics}
 
-Small-step semantics extends reduction rules to handle exception propagation. 
-When an exception is raised, it propagates outward through the computation context:
+Similarly, the small-step semantics are extended to include reduction rules to handle exception propagation.
+Note that all the newly introduced rules are $\beta$-rules. Once an exception is produced in some subexpression, there is no further reduction that can be performed on the rest.
 \begin{minted}{agda}
 data _⇾_ : ⊢ T → ⊢ T → Set where
-    ξ-⊞₁ : e₁ ⇾ e₁' → (e₁ ⊞ e₂) ⇾ (e₁' ⊞ e₂)
-    ξ-⊞₂ : e₂ ⇾ e₂' → (` n₁ ⊞ e₂) ⇾ (` n₁ ⊞ e₂')
-    β-⊞  : (` n₁ ⊞ ` n₂) ⇾ ` (n₁ + n₂)
-    
-    -- Exception propagation: throw bubbles up through each context
+    ...
+
     β-⊞-exn₁ : (throw ex ⊞ e₂) ⇾ throw ex
     β-⊞-exn₂ : (` n₁ ⊞ throw ex) ⇾ throw ex
-    
-    -- Try-catch handling
+
+    β-test-exn : (test (throw ex)) ⇾ throw ex
+    β-if-exn   : (if throw ex then e₁ else e₂) ⇾ throw ex
+
     ξ-try  : e ⇾ e' → (try e catch h) ⇾ (try e' catch h)
+    β-try-ok    : (try (` v) catch h) ⇾ ` v
     β-try-throw : (try (throw ex) catch h) ⇾ (h ex)
 \end{minted}
 
-\section{Denotational Semantics}
-% todo: look at the paper
-\cite{calculatingexceptionalmachines}
 
-\section{Abstract Machine}
-The abstract machine extends the base machine to handle exceptions. 
-The stack now includes exception handler frames, allowing the machine to pop frames and invoke handlers when exceptions occur:
+To prove the equivalence between this and the big step semantics. First we have to lift a result back into the expression language. For values, this is just the use of the quote constructor. For exceptions, it is the throw constructor.
 \begin{minted}{agda}
-data Frame : Type → Type → Set where
-    -- Base frames (from before)
-    _𝚎𝚕𝚜𝚎_         : ⊢ T → ⊢ T → Frame T Bool
-    _⊞₀_           : Hole → ⊢ Nat → Frame Nat Nat
-    _⊞₁_           : ⊨ Nat → Hole → Frame Nat Nat
-    -- Exception handling frame
-    catch          : (Exception → ⊢ T) → Frame T T
-
-data State (Answer : Type) : Set where
-    ⊢_↓_  : Stack Answer T → ⊨ T → State Answer
-    ⊢_☇_ : Stack Answer T → Exception → State Answer
-    ⊢_↑_  : Stack Answer T → ⊢ T → State Answer
+  resultExpr : ∀ {T : Type} → Result T → ⊢ T
+  resultExpr (return v) = ` v
+  resultExpr (raise ex) = throw ex
 \end{minted}
 
-% todo: the exception symbol (☇) isn't rendering correctly, hence why $\lightning$ is used here instead. 
-The machine operates in three modes: eval (↑), return (↓), and exception return ($\lightning$). 
-When an exception occurs, the machine transitions to exception return mode and unwinds the stack looking for a catch frame.
+In either case, it is impossible to reduce an expression resulting from the use of this function further, since there are no reduction rules that apply.
+\begin{minted}{agda}
+¬step-` : ∀ {T : Type} {v : ⊨ T} {e' : ⊢ T} → (` v) ⇾ e' → ⊥
+¬step-` ()
+
+¬step-throw : ∀ {T : Type} {ex : Exception} {e' : ⊢ T} → throw ex ⇾ e' → ⊥
+¬step-throw ()
+
+¬step-stuck : ∀ {T : Type} {r : Result T} {e' : ⊢ T} → resultExpr r ⇾ e' → ⊥
+¬step-stuck {r = return _} = ¬step-`
+¬step-stuck {r = raise  _} = ¬step-throw
+\end{minted}
+
+Now, the simulation proof is by induction on the big-step derivation, with a case for each constructor.
+\begin{minted}{agda}
+simulate : ∀ {T : Type} {e : ⊢ T} {r : Result T} → e ⇓ʳ r → e ⇾⃰ resultExpr r
+...
+
+simulate throw-rule               = base
+simulate (try-return p)           =
+    ⇾⃰-transitive (⇾⃰-try (simulate p))
+    (step β-try-ok base)
+simulate (try-catch p q)          =
+    ⇾⃰-transitive (⇾⃰-try (simulate p))
+    (step β-try-throw (simulate q))
+\end{minted}
+
+For a \texttt{throw} expression, the result is an exception, so no further reduction step is necessary. 
+For a \texttt{try-catch} expression, the result depends on the evaluation of the body and the handler. After evaluating the expression $e$, we can apply the $\xi$-rule to lift the reduction sequence to the whole \texttt{try}-expression, and then apply the appropriate $\beta$-rule depending on whether the body returned a value or raised an exception.
+
+The lifted version of the $\xi$-rule for \texttt{try} simply applies the single step $\xi$-rule to the first reduction step, and then recursively does the same for the remaining steps.
+\begin{minted}{agda}
+⇾⃰-try : ∀ {e e' : ⊢ T} {h : Exception → ⊢ T}
+    → e ⇾⃰ e' → (try e catch h) ⇾⃰ (try e' catch h)
+⇾⃰-try base       = base
+⇾⃰-try (step r p) = step (ξ-try r) (⇾⃰-try p)
+\end{minted}
+
+The proof in the other direction is identical to the proof for the base language. The only change necessary was to add cases to show that the relation is still deterministic.
+
+
+\section{Denotational Semantics}
+
+The denotational interpreter maps each expression directly to a \texttt{Result} rather than a value. For most constructs, this only requires wrapping the result in \texttt{return} if evaluating all subterms is successful, and propagating the exception otherwise.
+
+
+\begin{minted}{agda}
+interpret : ∀ {T : Type} → (⊢ T) → Result T
+interpret (` x) = return x
+interpret (throw x) = raise x
+
+interpret (t₁ ⊞ t₂) with interpret t₁ | interpret t₂
+... | raise ex  | _          = raise ex
+... | return _  | raise ex   = raise ex
+... | return n₁ | return n₂  = return (n₁ + n₂)
+
+interpret (try t catch h) with interpret t
+... | raise ex = interpret (h ex)
+... | return v = return v
+\end{minted}
+
+For \texttt{try-catch}, if the body raises an exception the interpreter immediately evaluates the handler; if the body returns a value the handler is never invoked.
+
+The proof of equivalence between this interpreter and the big-step semantics is also identical to the base language, with the only notable difference being the wrapping of values into the result type, and of course the handling of additional constructors introduced by the exception propagation and handling.
+\begin{minted}{agda}
+simulate : ∀ {T : Type} {e : ⊢ T} {r : Result T} → e ⇓ʳ r → interpret e ≡ r
+
+...
+
+simulate (throw-rule {ex}) = refl
+simulate (⊞-exn₁ t₁)     rewrite simulate t₁               = refl
+simulate (⊞-exn₂ t₁ t₂)  rewrite simulate t₁ | simulate t₂ = refl
+simulate (try-return x)   rewrite simulate x = refl
+simulate (try-catch x d)  rewrite simulate x = simulate d
+
+
+simulateᴿ : ∀ {T : Type} (e : ⊢ T) {r : Result T} → interpret e ≡ r → e ⇓ʳ r
+  ...
+simulateᴿ (throw x)  refl = throw-rule
+simulateᴿ (try t catch h) p with interpret t in eq | p
+... | raise ex | p′   = try-catch (simulateᴿ t eq) (simulateᴿ (h ex) p′)
+... | return v | refl = try-return (simulateᴿ t eq)
+\end{minted}
+
+
+\section{Abstract Machine}
+
+The abstract machine extends the base machine to handle exceptions.
+One new frame type is added: a \texttt{catch} frame, which stores the handler $h$ and is pushed onto the stack when the machine enters a \texttt{try}-expression.
+
+\begin{minted}{agda}
+data Frame : Type → Type → Set where
+    ...
+    catch   : (Exception → ⊢ T) → Frame T T
+\end{minted}
+
+The machine now operates in three modes:
+\begin{minted}{agda}
+data State (Answer : Type) : Set where
+    ⊢_↑_ : Stack Answer T → ⊢ T      → State Answer
+    ⊢_↓_ : Stack Answer T → ⊨ T      → State Answer
+    ⊢_☇_ : Stack Answer T → Exception → State Answer
+\end{minted}
+The eval mode (↑) and return mode (↓) behave as before.
+The \textit{unwind mode} (\verb|☇|) carries the exception that was raised and scans the stack for the nearest \texttt{catch} frame.
+As for the transition rules, the machine transitions to unwind mode when a \texttt{throw} expression is evaluated.
+\begin{minted}{agda}
+data _⇾_ : State Answer → State Answer → Set where
+  ...
+  step-throw  : ⊢ stack ↑ throw ex ⇾ ⊢ stack ☇ ex
+  step-try    : ⊢ stk ↑ (try e catch h)
+                ⇾ ⊢ stk ∷ catch h ↑ e
+
+  step-catch-ok : ⊢ stk ∷ catch h ↓ v
+                  ⇾ ⊢ stk ↓ v
+  
+  step-catch-exn  : ⊢ stack ∷ catch h ☇ ex      ⇾ ⊢ stack ↑ h ex
+\end{minted}
+
+When evaluating a \texttt{try}-expression, the machine pushes a \texttt{catch} frame containing the handler $h$ and transitions to evaluating the body $e$.
+If the machine then reaches a return state with that \texttt{catch} frame on top of the stack, it simply pops the frame and returns the value. If the machine is in the unwind mode, it evaluates the handler $h$.
+
+
+And a rule for dropping stack frames when unwinding:
+\begin{minted}{agda}
+  step-discard :  ⊢ stack :: f ↑ throw ex ⇾ ⊢ stack ☇ ex
+\end{minted}
+
+However, note that such a rule is too general. In our big-step semantics, we have specific constructors that are applied when some subterm results in an exception.
+The following proofs would not be possible using this general rule, as we would not be able to determine which constructor applies without inspecting the frame. Therefore, each of the constructs must have an explicit drop rule.
+\begin{minted}{agda}
+step-drop-𝚎𝚕𝚜𝚎 : ⊢ stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂) ☇ ex ⇾ ⊢ stack ☇ ex
+step-drop-⊞₀   : ⊢ stack ∷ (◌ ⊞₀ e₂) ☇ ex   ⇾ ⊢ stack ☇ ex
+step-drop-⊞₁   : ⊢ stack ∷ (v₁ ⊞₁ ◌) ☇ ex   ⇾ ⊢ stack ☇ ex
+step-drop-test  : ⊢ stack ∷ test ◌ ☇ ex        ⇾ ⊢ stack ☇ ex
+\end{minted}
+
+
+Machine completeness is split into two mutually recursive lemmas matching the two outcomes of big-step evaluation.
+If the stack is exhausted without finding a handler the machine is stuck, corresponding to an uncaught exception reaching the top level.
+\begin{minted}{agda}
+complete     : e ⇓ v  → (⊢ stk ↑ e) ⇾⃰ (⊢ stk ↓ v)
+complete-exn : e ⇑ ex → (⊢ stk ↑ e) ⇾⃰ (⊢ stk ☇ ex)
+\end{minted}
+The proofs are mutually recursive due to the \texttt{try-catch} case of \texttt{complete}, which needs \texttt{complete-exn} to handle the body, and \texttt{complete-exn} must call \texttt{complete} to prove the handler case.
+As before, the proof is by induction on the big-step derivation, notably now including the cases for the try expression.
+The two proofs are almost identical, with the notable exception being the handling of the base case.
+Values leave the machine in a return state, while exceptions leave the machine in an unwind state.
+\begin{minted}{agda}
+complete (` _) v stk (` .v) =
+    step step-` base
+
+complete (try e catch h) v stk (try-return p) =
+  step step-try
+  (⇾⃰-transitive (complete e v (stk ∷ catch h) p)
+  (step step-catch-ok base))
+
+complete (try e catch h) v stk (try-catch {ex = ex} pe ph) =
+  step step-try
+  (⇾⃰-transitive (complete-exn e ex (stk ∷ catch h) pe)
+  (step step-catch-exn
+  (complete (h ex) v stk ph)))
+  
+...
+complete-exn (throw _) ex stk throw-rule =
+    step step-throw base
+
+complete-exn (try e catch h) ex stk (try-catch pe ph) =
+    step step-try
+    (⇾⃰-transitive (complete-exn e _ (stk ∷ catch h) pe)
+    (step step-catch-exn
+    (complete-exn (h _) ex stk ph)))
+\end{minted}
+
+Machine correctness requires a small extension of the confluence argument used in the Arithmetic chapter.
+There are now two possible final states either return ($\downarrow$) or unwind ($\text{☇}$).
+
+By totality, $e$ evaluates big-step to some result $r$.
+
+If $r = \mathtt{return}\;v'$, completeness produces a canonical run to $\texttt{⊢}\,[\,]\,\downarrow\,v'$; confluence with the given run yields $v = v'$.
+
+If $r = \mathtt{raise}\;ex$, completeness-exn produces a run to $\texttt{⊢}\,[\,]\,\text{☇}\,ex$; confluence with the given $\downarrow$-run yields an equality between the two different constructors, which is absurd.
+The symmetric argument handles \texttt{correct-exn}:
+\begin{minted}{agda}
+correct : ∀ (e : ⊢ T) (v : ⊨ T) → (⊢ [] ↑ e) ⇾⃰ (⊢ [] ↓ v) → e ⇓ v
+correct-exn : ∀ (e : ⊢ T) (ex : Exception) → (⊢ [] ↑ e) ⇾⃰ (⊢ [] ☇ ex) → e ⇑ ex
+
+correct e v tr with total e
+... | return v' ﹐ p =
+    let tr' : ⊢ [] ↑ e ⇾⃰ ⊢ [] ↓ v'
+        tr' = complete e v' [] p
+
+        eq : (⊢ [] ↓ v') ≡ (⊢ [] ↓ v)
+        eq  = confluence tr' tr stuck-↓ stuck-↓
+    in  subst (λ u → e ⇓ u) (↓-inj eq) p
+... | raise ex ﹐ p =
+    let tr' : ⊢ [] ↑ e ⇾⃰ ⊢ [] ☇ ex
+        tr' = complete-exn e ex [] p
+
+        eq : ⊢ [] ☇ ex ≡ ⊢ [] ↓ v
+        eq  = confluence tr' tr stuck-☇ stuck-↓
+    in  ex-falso (↓≢☇ (sym eq))
+
+
+correct-exn e ex tr with total e
+... | return v ﹐ p =
+    let tr' : ⊢ [] ↑ e ⇾⃰ ⊢ [] ↓ v
+        tr' = complete e v [] p
+        eq : ⊢ [] ↓ v ≡ ⊢ [] ☇ ex
+        eq  = confluence tr' tr stuck-↓ stuck-☇
+    in  ex-falso (↓≢☇ eq)
+... | raise ex' ﹐ p =
+    let tr' : ⊢ [] ↑ e ⇾⃰ ⊢ [] ☇ ex'
+        tr' = complete-exn e ex' [] p
+
+        eq : ⊢ [] ☇ ex' ≡ ⊢ [] ☇ ex
+        eq  = confluence tr' tr stuck-☇ stuck-☇
+    in  subst (e ⇑_) (☇-inj eq) p
+\end{minted}
 
 \chapter{The Simply-Typed Lambda Calculus}
-\section{Syntax}
-  De Bruijn indices replace named variables with natural numbers indicating binding depth.
-\section{Semantics}
+\label{chap:stlc}
 
-\begin{itemize}
-    \item Big-step semantics: evaluation under an environment mapping variables to values
-    \item Values: closed $\lambda$-abstractions (and their closures in an environment-based semantics)
-    \item Small-step semantics: $\beta$-reduction and $\xi$-congruence rules; progress and preservation theorems
-    \item Denotational semantics: agda types as domains.
-    \item Closure semantics: explicit closure representation of functions.
-    \item Problems (Termination Pragma, which asserts STLC is total, which isn't obvious to Agda)
-    \item Agda's termination checker requires all recursive calls to be on structurally smaller arguments
-    \item Logical Relations
-\end{itemize}
+The Simply-Typed Lambda Calculus (STLC) extends the arithmetic expression language
+with $\lambda$-abstractions and function application.
 
-% \section{More}
-% \blindtext[1]
+\section{Syntax and Types}
+
+STLC has two base types, together with a function type $A \Rightarrow B$.
+
+\begin{minted}{agda}
+data _⊢_ (Γ : Context) : Type → Set where
+  Nat           : ℕ → Γ ⊢ Nat
+  Bool          : 𝔹 → Γ ⊢ Bool
+  _⊞_           : Γ ⊢ Nat → Γ ⊢ Nat → Γ ⊢ Nat
+  if_then_else_ : Γ ⊢ Bool → Γ ⊢ T → Γ ⊢ T → Γ ⊢ T
+  Var           : T ∈ Γ → Γ ⊢ T
+  ƛ_            : (Γ , T₁) ⊢ T₂ → Γ ⊢ (T₁ ⇒ T₂)
+  _·_           : Γ ⊢ (T₁ ⇒ T₂) → Γ ⊢ T₁ → Γ ⊢ T₂
+\end{minted}
+
+Variables are represented using De~Bruijn indices.
+A variable of type $T$ in context $\Gamma$ is a proof that $T \in \Gamma$, built from
+constructors $Z : T \in (\Gamma , T)$ and $S : T \in \Gamma \to T \in (\Gamma , U)$.
+Note that in the definition of the De~Bruijn indices, the index is never the empty scope.
+Scope correctness is therefore guaranteed, if a value of $x : T \in \Gamma$ exists.
+
+\begin{minted}{agda}
+data _∈_ : Type → Context → Set where
+  Z : T ∈ (Γ , T)
+  S : T ∈ Γ → T ∈ (Γ , U)
+\end{minted}
+
+
+A context is simply a list of types, and an environment $\delta$ for a context $\Gamma$ assigns a value to each variable in $\Gamma$.
+
+\section{Big-Step Semantics}
+\label{sec:stlc-big-steps}
+
+Because the language contains $\lambda$-abstractions, values include
+\emph{closures}---a pairing of the environment $\delta^c$ with the body of an
+abstraction $e^c$.
+
+\begin{minted}{agda}
+record Closure (A B : Type) : Set where
+  inductive
+  constructor ⟨_,_⟩
+  field
+    {Γᶜ} : Context
+    δᶜ   : Environment Γᶜ
+    eᶜ   : (Γᶜ , A) ⊢ B
+\end{minted}
+
+The \texttt{inductive} keyword is necessary because \texttt{Closure A B} and \texttt{⊨\_} are mutually recursive: $\vDash (A \Rightarrow B) = \mathtt{Closure}\;A\;B$, while \texttt{Environment~$\Gamma$} stores values of type $\vDash T$.
+
+% The value domain $\vDash T$ maps $\vDash (A \Rightarrow B) = \mathtt{Closure}\;A\;B$.
+% An environment $\delta$ for context $\Gamma$ then assigns a value $\vDash T$ to each
+% variable of type $T$ in $\Gamma$:
+
+% \begin{minted}{agda}
+% ⊨_ : Type → Set
+% ⊨ Bool    = 𝔹
+% ⊨ Nat     = ℕ
+% ⊨ (A ⇒ B) = Closure A B
+% \end{minted}
+
+The evaluation relation is defined as a data type indexed by the environment $\delta$, the term $e : \Gamma \vdash T$, and the value $v : \vDash T$.
+Each evaluation rule is represented as a constructor of this data type.
+
+\begin{minted}{agda}
+data _⊢_⇓_ : Environment Γ → Γ ⊢ T → ⊨ T → Set where
+  ...
+  VAR  : δ ⊢ Var x ⇓ lookupₑ δ x
+  ABS  : δ ⊢ ƛ e ⇓ ⟨ δ , e ⟩
+  app  : δ ⊢ e₀ ⇓ ⟨ δᶜ , eᶜ ⟩
+       → δ ⊢ e₁ ⇓ v₁
+       → (δᶜ , v₁) ⊢ eᶜ ⇓ v
+       → δ ⊢ e₀ · e₁ ⇓ v
+\end{minted}
+
+Variables are evaluated by looking up their value in the environment. 
+Evaluating a $\lambda$-abstraction produces a closure containing the captured environment and the body of the abstraction.
+The application case evaluates the first operand to a closure, evaluates the second operand to a value, and then evaluates the body of the closure in an extended environment where the captured environment is extended with the argument value.
+
+
+The STLC is known to be strongly normalising: every well-typed term evaluates to a normal form, that is a term that cannot be further reduced. As is the case for the other languages discussed in this thesis, normal forms are values.
+\begin{minted}{agda}
+{-# TERMINATING #-}
+total : ∀ (e : Γ ⊢ T) → ∃ (λ v → δ ⊢ e ⇓ v)
+...
+total {δ = δ} (Var x) = lookupₑ δ x ʻ VAR x
+total (ƛ e) = ⟨ _ , e ⟩ ʻ ABS e
+total (e₁ · e₂) with total e₁ | total e₂
+... | (⟨ δᶜ , eᶜ ⟩ ʻ p) | (v₂ ʻ q) with total {δ = δᶜ , v₂} eᶜ 
+... | (v ʻ r) = v ʻ app p q r
+\end{minted}
+
+As it is not obvious to the termination checker that the body of the closure is structurally smaller.
+Evaluating a $\lambda$-abstraction returns a closure containing the captured environment and the body of the abstraction.
+Much like the definition in the big-step semantics, the case for variables simply looks up the value of the variable in the environment.
+The definition is marked with \texttt{\{-\# TERMINATING \#-\}} stemming from the call to \texttt{total} on the body of the closure $e^c$ in the application case. 
+
+\section{Small-Step Semantics}
+We now attempt to address the small-step semantics for STLC. Recall that the small step relation is defined on syntactic terms, and not "values" as in the big-step semantics.
+A term is \emph{normal} if it cannot take a further step; the \texttt{Normal}
+predicate characterises this class:
+
+\begin{minted}{agda}
+data Normal : Γ ⊢ T → Set where
+  nat     : Normal (Nat n)
+  bool    : Normal (Bool b)
+  closure : Normal (ƛ e)
+\end{minted}
+
+\begin{minted}{agda}
+data _↦_ : Γ ⊢ T → Γ ⊢ T → Set where
+  ...
+  β-app       : (ƛ e · v) ↦ e [ v ]
+  ξ-app-left  : e₁ ↦ e₁′ → (e₁ · e₂) ↦ (e₁′ · e₂)
+  ξ-app-right : Normal v → e₂ ↦ e₂′ → (v · e₂) ↦ (v · e₂′)  
+\end{minted}
+
+Note that unlike the big-step semantics, the small-step semantics performs substitution in the case of $\beta$-reduction of function application,
+that is to say: the body of the closure is evaluated, but the bound variable is replaced with the argument value, rather than being looked up in an environment.
+
+Unfortunately, this causes the proof to be much more difficult, as we would have to prove that looking up the variable in the environment is equivalent to this substitution. 
+The following section discusses an incomplete attempt made to prove the equivalence.
+
+The first is addressing the statement of the theorem itself. If $\delta \vdash e \Downarrow v$, then it must be possible to reinterpret $v$ back into a term.
+\begin{minted}{agda}
+  embed : ∀ {T : Type} → ⊨ T → ∅ ⊢ T
+  embed {Nat} n = Nat n
+  embed {Bool} b = Bool b
+  embed {T = T₁ ⇒ T₂} ⟨ δᶜ , eᶜ ⟩ = ƛ ?
+\end{minted}
+
+It is apparent closures should be embedded into an expression of the form $(\lambda e^c)$, but the issue is that of the captured environment $\delta^c$.
+The body of the closure $e^c$ is defined in the context $\Gamma^c$, but the embedding requres that the body of the $\lambda$-abstraction is defined in the context $(\emptyset , T_1)$.
+
+Still, assuming this definition can be completed, the relation is written out as:
+\begin{minted}{agda}
+  simulate : ∀ {Γ} {δ : Environment Γ} {e : ∅ ⊢ T} {v : ⊨ T}
+    → ∅ ⊢ e ⇓ v
+    → e ↦* embed v
+
+  simulateᴿ : ∀ {e : ∅ ⊢ T} {v : ⊨ T} → e ↦* embed v → ∅ ⊢ e ⇓ v
+\end{minted}
+
+Both functions cannot be completed without filling in the definition of embed.
+
+An alternate formulation of the STLC with the "quote" constructor for values was also part of the attempt. The source code is provided in the "STLC-Alt" directory accompanying this thesis.
+The two theorems then can be formulated in terms of the quote:
+
+\begin{minted}{agda}
+  simulate : → ∅ ⊢ e ⇓ v → e ↦* ` v
+  simulateᴿ : ∀ {e : ∅ ⊢ T} {v : ⊨ T} → e ↦* ` v → ∅ ⊢ e ⇓ v
+\end{minted}
+
+That however, does not solve the issue of proving that substitution is equivalent to the looking semantics.
+\begin{minted}{agda}
+  δ ⊢ s [ ` v ] ⇓ v₂
+  → δ ⊢ s [ ` ⟨δᶜ , eᶜ ⟩ · ` v₁ ] ⇓ v₂
+\end{minted}
+There are ways of aligning the two semantics, by adopting a different representation of variables or so. However, none of this is pursued in this thesis.
+
+\section{Denotational Semantics}
+
+Two denotational interpretations of STLC are presented: a direct semantics utilizing Agda's function type and an explicit
+closure semantics.
+
+\subsubsection*{Direct Semantics}
+
+The direct semantics maps each type $T$ to the domain of Agda types $\llbracket T \rrbracket$,
+most notably, interpreting function types as Agda function types:
+$\langle \langle A \Rightarrow B \rangle \rangle = \langle \langle A \rangle \rangle \to \langle \langle B \rangle \rangle$.
+
+\begin{minted}{agda}
+⟪_⟫ : Type → Set
+⟪ Bool  ⟫ = 𝔹
+⟪ Nat   ⟫ = ℕ
+⟪ A ⇒ B ⟫ = ⟪ A ⟫ → ⟪ B ⟫
+
+interpret : Env Γ → Γ ⊢ T → ⟪ T ⟫
+...
+interpret δ (Var x)               = lookupᵈ δ x
+interpret δ (ƛ e)                 = λ z → interpret (δ , z) e
+interpret δ (e₁ · e₂)            = (interpret δ e₁) (interpret δ e₂)
+\end{minted}
+
+Unsurprisingly, variables are interpreted by looking up their value in the environment; $\lambda$-abstractions in our languages are interpreted as Agda functions that take an argument $z : \langle \langle A \rangle \rangle$ and interpret the body of the abstraction in the extended environment; function application is then simply interpreted as function application.
+
+The environment must be redefined to account for this change in the value domain, so that it now maps variables to values in the direct semantics.
+Environments are still defined inductively on the Context, as a chain of products of values.
+\begin{minted}{agda}
+Env : Context → Set
+Env ∅ = ⊤
+Env (Γ , T) = Env Γ × ⟪ T ⟫
+
+lookupᵈ : ∀{Γ T} → Env Γ → T ∈ Γ → ⟪ T ⟫
+lookupᵈ (Γ ⸴ x) Z = x
+lookupᵈ (Γ ⸴ x) (S n) = lookupᵈ Γ n
+\end{minted}
+
+
+\subsubsection*{Closure Semantics}
+Rather than interpreting function types into functions of our meta-language, the closure semantics represents them as explicit closures (as defined above, see \ref{sec:stlc-big-steps}).
+The \texttt{evaluate} and \texttt{apply} functions are defined by mutual recursion:
+\texttt{evaluate} recurses on the structure of the term and delegates function
+application to \texttt{apply}; \texttt{apply} unpacks a closure
+$\langle\delta^c, e^c\rangle$, extends the saved environment with the argument value,
+and calls \texttt{evaluate} on the body.
+
+\begin{minted}{agda}
+{-# TERMINATING #-}
+apply    : Closure T₁ T₂ → ⊨ T₁ → ⊨ T₂
+evaluate : Environment Γ → Γ ⊢ T → ⊨ T
+
+...
+evaluate δ (Var x)              = lookupₑ δ x
+evaluate δ (ƛ e)                = ⟨ δ , e ⟩
+evaluate δ (e₁ · e₂)            = apply (evaluate δ e₁) (evaluate δ e₂)
+
+apply ⟨ δᶜ , eᶜ ⟩ v = evaluate (δᶜ , v) eᶜ
+\end{minted}
+
+Note the use of the terminating pragma, which much like the totality proof for the big-step semantics, is necessary to convince the termination checker that the recursive call in \texttt{apply} is on a structurally smaller term.
+
+\subsubsection*{Logical Relations}
+The domain of values is different in the case of function types. So the following does not type check:
+\begin{minted}{agda}
+evaluate δ (ƛ e) ≡ interpret δ (ƛ e)
+\end{minted}
+Specifically, the environment on the left side is of type \texttt{Environment~$\Gamma$}, which the domain with explicit closures, while the environment on the right side is of type \texttt{Env~$\Gamma$}, the domain with direct semantics.
+
+Instead, the two denotational interpretations are related by a logical relations argument.
+The relation $v \sim_{\langle T \rangle} u$ states that a closure-semantics value $v : \ \vDash T$ and a
+direct-semantics value $u : \ll T \gg$ are semantically equivalent at
+type $T$:
+
+\begin{minted}{agda}
+relates : (A : Type) → ⊨ A → ⟪ A ⟫ → Set
+x₁ ~⟨ Nat   ⟩~ x₂ = x₁ ≡ x₂
+x₁ ~⟨ Bool  ⟩~ x₂ = x₁ ≡ x₂
+f₁ ~⟨ T ⇒ U ⟩~ f₂ = ∀ {a₁ a₂}
+  → a₁ ~⟨ T ⟩~ a₂ 
+  → apply f₁ a₁ ~⟨ U ⟩~ f₂ a₂
+\end{minted}
+
+For base types the relation is simply propositional equality.
+For function types, two functions are related if applying them to related arguments produces related results.
+Note the use of the \texttt{apply} function to produce a term from an application of an explicit closure $f_1$ in the definition of the relation for function types.
+
+The central theorem states that the two denotational semantics agree on every term under related environments:
+\[
+  \delta \sim\!\langle\Gamma\rangle\!\sim \delta'\;\Longrightarrow\;\operatorname{evaluate}\;\delta\;e\;\sim\!\langle T\rangle\!\sim\;\operatorname{interpret}\;\delta'\;e
+\]
+
+%todo
+\section{Abstract Machine}
+
+The abstract machine for STLC extends the arithmetic machine with frames for function
+application.
+The key distinction from the machines introduced in the previous chapters is that the environment is carried
+\emph{with the machine state}.
+
+The three application frames are:
+
+\begin{minted}{agda}
+data Frame : Type → Type → Set where
+  app₁ : Hole → Γ ⊢ A        → Frame B (A ⇒ B)
+  app₂ : ⊨ (A ⇒ B) → Hole   → Frame B A
+  app₃ : Environment Γ → ⊨ (A ⇒ B) → ⊨ A → Hole → Frame B B
+\end{minted}
+
+Function application $e_1 \cdot e_2$ proceeds through three successive frames:
+\begin{enumerate}
+  \item \texttt{app\textsubscript{1}}: push a frame recording the unevaluated argument $e_2$,
+    and evaluate $e_1$ to obtain the closure.
+  \item \texttt{app\textsubscript{2}}: push a frame recording the obtained closure, and evaluate
+    $e_2$ to obtain the argument value $v_2$.
+  \item \texttt{app\textsubscript{3}}: switch the active environment to the closure's saved
+    environment $\delta^c$, push a frame recording the caller's environment $\delta$,
+    and evaluate the closure body $e^c$.
+    When the evaluation of the body $e^c$ finishes, \texttt{app\textsubscript{3}} restores the caller's environment.
+\end{enumerate}
+
+The corresponding transition rules are:
+
+\begin{minted}{agda}
+data _⇾_ : State Answer → State Answer → Set where
+  step-var : (δ ⊢ stack ↑ Var x)
+           ⇾ (δ ⊢ stack ↓ lookupₑ δ x)
+  step-ƛ   : (δ ⊢ stack ↑ (ƛ e))
+           ⇾ (δ ⊢ stack ↓ ⟨ δ , e ⟩)
+  step-·   : (δ ⊢ stack ↑ e₁ · e₂)
+           ⇾ (δ ⊢ stack ∷ app₁ ◌ e₂ ↑ e₁)
+  step-·₁  : (δ ⊢ stack ∷ app₁ ◌ e₂ ↓ v₁)
+           ⇾ (δ ⊢ stack ∷ app₂ v₁ ◌ ↑ e₂)
+  step-·₂  : (δ ⊢ stack ∷ app₂ ⟨ δᶜ , eᶜ ⟩ ◌ ↓ v₂)
+           ⇾ ((δᶜ , v₂) ⊢ stack ∷ app₃ δ ⟨ δᶜ , eᶜ ⟩ v₂ ◌ ↑ eᶜ)
+  step-·₃  : (δ ⊢ stack ∷ app₃ δ′ f v₂ ◌ ↓ v₃)
+           ⇾ (δ′ ⊢ stack ↓ v₃)
+\end{minted}
+
+Variable lookup (\texttt{step-var}) reads the value directly from the environment.
+Evaluating a $\lambda$-abstraction (\texttt{step-ƛ}) captures the current environment $\delta$ together with the body $e$ into a closure value $\langle\delta, e\rangle$ which is returned.
+Evaluating a function application proceeds by first evaluating the left operand into a closure, popping the stack frame and pushing a new one containing the closure, and evaluating the argument. 
+Once the argument is evaluated, the machine switches to the closure's saved environment, inserting the value of the argument and evaluates the body of the closure.
+When the body of the function is evaluated, the machine restores the call-site environment and returns the result.
+
+All that remains is the proof of equivalence between the abstract machine and the big-step semantics.
+For completeness, the proof is by induction on big-step derivation.
+
+\begin{minted}{agda}
+complete : (δ ⊢ stack ↑ e ⇾⃰  δ ⊢ stack ↓ v)
+complete δ stack (Var _) v (VAR _) = step step-var base
+complete δ stack (ƛ _) v (ABS _) = step step-ƛ base
+complete δ stack (e₀ · e₁) v (app {δᶜ = δᶜ} {eᶜ} {v₁} p p₁ p₂) =
+  proof
+    δ ⊢ stack ↑ (e₀ · e₁)
+  ⇾⟨ step-· ⟩
+    δ ⊢ stack ∷ app₁ ◌ e₁ ↑ e₀
+  ⇾⃰⟨ complete δ (stack ∷ app₁ ◌ e₁) e₀ ⟨ δᶜ , eᶜ ⟩ p ⟩
+    δ ⊢ stack ∷ app₁ ◌ e₁ ↓ ⟨ δᶜ , eᶜ ⟩
+  ⇾⟨ step-·₁ ⟩
+    δ ⊢ stack ∷ app₂ ⟨ δᶜ , eᶜ ⟩ ◌ ↑ e₁
+  ⇾⃰⟨ complete δ (stack ∷ app₂ ⟨ δᶜ , eᶜ ⟩ ◌) e₁ v₁ p₁ ⟩
+    δ ⊢ stack ∷ app₂ ⟨ δᶜ , eᶜ ⟩ ◌ ↓ v₁
+  ⇾⟨ step-·₂ ⟩
+    (δᶜ , v₁) ⊢ stack ∷ app₃ δ ⟨ δᶜ , eᶜ ⟩ v₁ ◌ ↑ eᶜ
+  ⇾⃰⟨ complete (δᶜ , v₁) (stack ∷ app₃ δ ⟨ δᶜ , eᶜ ⟩ v₁ ◌) eᶜ v p₂ ⟩
+    (δᶜ , v₁) ⊢ stack ∷ app₃ δ ⟨ δᶜ , eᶜ ⟩ v₁ ◌ ↓ v
+  ⇾⟨ step-·₃ {v₁ = ⟨ δᶜ , eᶜ ⟩} ⟩
+    δ ⊢ stack ↓ v
+  ∎
+\end{minted}
+
+For the case of variables, values and $\lambda$ terms, applies the single corresponding step and returns the required value.
+The case for application proceeds as it was previously described above.
+
+The proof for correctness is again, identical to the one for the arithmetic machine, with the same confluence argument.
+We use the totality of the big-step semantics to obtain a value $v'$ such that $\delta \vdash e \Downarrow v'$. 
+Using the completeness lemma, we obtain a run from $\delta \vdash [] \uparrow e$ to $\delta \vdash [] \downarrow v'$.
+
+Both $v$ and $v'$ are results (values), therefore the runs $\delta \vdash [] \uparrow e \to^* \delta \vdash [] \downarrow v$ and $\delta \vdash [] \uparrow e \to^* \delta \vdash [] \downarrow v'$ are final states.
+
+Confluence with the given run from $\delta \vdash [] \uparrow e$ to $\delta \vdash [] \downarrow v$ yields $v = v'$, which completes the proof.
+
+\chapter{Related Work} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Hutton \cite{easyas123} presents a systematic route from semantics to an abstract
+machine for a version of the language of arithmetic expressions. The method is different from the one
+used in this thesis. Rather than starting from the structure of big-step
+derivations and reifying suspended evaluation contexts as a stack of frames, Hutton begins
+with an evaluator, rewrites it into continuation-passing style, and
+defunctionalizes the resulting continuation-passing version into a first-order datatype. 
+Despite these differences, there is a correspondence between the two developments: a frame in 
+the present thesis is equivalent to a defunctionalized continuation in Hutton's account. 
+Correctness is proven by construction. 
+
+Hutton and Wright \cite{calculatingexceptionalmachines} extend the approach above with exceptions. The source language is similar to the one studied in here: 
+arithmetic expressions with untagged, payload-free exceptions  and handlers. The basic continuation-based setup described in the previous paper is used, with modifications:
+the type of the continuation is modified to account for the possibility that evaluation raises an exception
+rather than returning a value. They \cite{compilingexceptionscorrectly} have also shown a derivation of a verified compiler from the language to a stack-based abstract machine.
+Of particular relevance is the treatment of handlers: the code for a compiled handler is pushed onto a stack of handlers, its "extent" is delimited by mark and unmark instructions.
+An exception causes the machine to unwind until a matching handler is found. The analogous mechanism used in this thesis is the unwind mode in the exceptional abstract machine, and 
+more generally to the explicit propagation rules in the source semantics that make exceptional control flow
+visible. Hutton et al. \cite{calculatingdependentlytypedcompilers} present a formalization of the aforementioned compiler in Agda, without explicit proofs of correctness.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Conclusion} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\blindtext[2]
+This thesis presented a process for the systematic derivation of an interpreter in the form of an abstract machine. In particular, for arithmetic expressions, arithmetic expressions with exceptions, and the simply typed lambda calculus.
+
+The derivation proceeds in a systematic manner:
+\begin{itemize}
+  \item representing the evaluation of terms explicitly, via frames that record what has already been evaluated, together with holes representing terms pending evaluation and unevaluated terms;
+  \item defining abstract-machine states as a stack of frames operating in three modes: eval, return, and, in the case of exceptions, unwind;
+  \item defining transition rules between machine states by mimicking the in-order evaluation of the term; and
+\end{itemize}
+Finally, each derived machine is proven to be semantically consistent with the big-step semantics. 
+The first direction (completeness) is inductively proven by showing that the execution trace of the abstract machine follows that of a big-step evaluation derivation.
+The second direction (correctness) is proven by the confluence argument, using the totality of the big-step semantics of our language to obtain a run of the machine to a value $v'$, and then showing that any other run producing $v$ must converge to the same result.
+
+We also showed that the semantics are compositional; we can derive an equivalence between other forms of semantics by considering the big-step semantics as an intermediary.
+
+Several limitations of the current approach point to directions for future work.
+First, this approach assumes that all programs are total: both the big-step semantics and the totality proof used in the correctness argument inherently do not account for non-terminating programs.
+Addressing this would require either moving to a coinductive big-step semantics or pivoting to small-step semantics as the form of semantics from which others are derived.
+Second, the totality proof for the STLC currently relies on a termination pragma, meaning it is accepted by Agda on trust rather than verified structurally; finding a way to eliminate this pragma remains open.
+The equivalence proof between the small-step and big-step semantics for the STLC remains open as well.
+

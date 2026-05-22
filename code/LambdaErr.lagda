@@ -107,25 +107,25 @@ mutual
   _⊢_⇓_ : Environment Γ → Γ ⊢ T → Value T → Set
   δ ⊢ e ⇓ v = δ ⊢ e ⇓ˢ (ret v)
 
-  _⊢_⇓ᵉ_ : Environment Γ → Γ ⊢ T → Exception T → Set
-  δ ⊢ e ⇓ᵉ v = δ ⊢ e ⇓ˢ (raised v)
+  _⊢_⇑_ : Environment Γ → Γ ⊢ T → Exception T → Set
+  δ ⊢ e ⇑ v = δ ⊢ e ⇓ˢ (raised v)
   
   data _⊢_⇓ˢ_ : Environment Γ → Γ ⊢ T → Result T → Set where
-    RAISE : δ ⊢ raise ⇓ᵉ (error {T})
+    RAISE : δ ⊢ raise ⇑ (error {T})
     NUM   : ∀ n → δ ⊢ (Num n) ⇓ (Nat n)
     VAR   : ∀ (v : T ∈ Γ) → δ ⊢ (Var v) ⇓ lookupₑ δ v 
     FUN   : ∀ {δ : Environment Γ} → (e : (Γ , T₁) ⊢ T₂) → δ ⊢ (ƛ e) ⇓ (Closure δ e)
 
     ADD   : δ ⊢ e₁ ⇓ n₁ → δ ⊢ e₂ ⇓ n₂ → δ ⊢ (e₁ ⊕ e₂) ⇓ (n₁ + n₂)
     
-    ADDₑ₁ : δ ⊢ e₁ ⇓ᵉ error
+    ADDₑ₁ : δ ⊢ e₁ ⇑ error
           --------------------
-          → δ ⊢ (e₁ ⊕ e₂) ⇓ᵉ error
+          → δ ⊢ (e₁ ⊕ e₂) ⇑ error
 
     ADDₑ₂ : δ ⊢ e₁ ⇓ n₁
-          → δ ⊢ e₂ ⇓ᵉ error
+          → δ ⊢ e₂ ⇑ error
           --------------------
-          → δ ⊢ (e₁ ⊕ e₂) ⇓ᵉ error
+          → δ ⊢ (e₁ ⊕ e₂) ⇑ error
 
     APP   : ∀ {δ' : Environment Δ} {e₁ : Γ ⊢ (T₁ ⇒ T₂)} {e : (Δ , T₁) ⊢ T₂} {v₂ : Value T₁}
             → δ ⊢ e₁ ⇓ (Closure δ' e)
@@ -134,46 +134,46 @@ mutual
             → δ ⊢ (e₁ · e₂) ⇓ v
 
     APPₑ₁ : ∀ {δ' : Environment Δ} {e₁ : Γ ⊢ (T₁ ⇒ T₂)} {e : (Δ , T₁) ⊢ T₂} {v₂ : Value T₁}
-          → δ ⊢ e₁ ⇓ᵉ error {T₁ ⇒ T₂}
+          → δ ⊢ e₁ ⇑ error {T₁ ⇒ T₂}
           -- → δ ⊢ e₂ ⇓ v₂
           -- → ((δ' , v₂) ⊢ e ⇓ v)
           ------------------------
-          → δ ⊢ (e₁ · e₂) ⇓ᵉ error {T₂}
+          → δ ⊢ (e₁ · e₂) ⇑ error {T₂}
 
     APPₑ₂ : ∀ {δ' : Environment Δ} {e₁ : Γ ⊢ (T₁ ⇒ T₂)} {e : (Δ , T₁) ⊢ T₂} {v₂ : Value T₁}
           → δ ⊢ e₁ ⇓ (Closure δ' e)
-          → δ ⊢ e₂ ⇓ᵉ error
+          → δ ⊢ e₂ ⇑ error
           -- → ((δ' , v₂) ⊢ e ⇓ v)
           ------------------------
-          → δ ⊢ (e₁ · e₂) ⇓ᵉ error {T₂}
+          → δ ⊢ (e₁ · e₂) ⇑ error {T₂}
 
     APPₑ₃ : ∀ {δ' : Environment Δ} {e₁ : Γ ⊢ (T₁ ⇒ T₂)} {e : (Δ , T₁) ⊢ T₂} {v₂ : Value T₁}
           → δ ⊢ e₁ ⇓ (Closure δ' e)
           → δ ⊢ e₂ ⇓ v₂
           -- → ((δ' , v₂) ⊢ e ⇓ v)
           ------------------------
-          → δ ⊢ (e₁ · e₂) ⇓ᵉ error {T₂}
+          → δ ⊢ (e₁ · e₂) ⇑ error {T₂}
 
     APPₑ₄ : ∀ {δ' : Environment Δ} {e₁ : Γ ⊢ (T₁ ⇒ T₂)} {e : (Δ , T₁) ⊢ T₂} {v₂ : Value T₁}
           → δ ⊢ e₁ ⇓ (Closure δ' e)
           → δ ⊢ e₂ ⇓ v₂
-          → (δ' , v₂) ⊢ e ⇓ᵉ error
+          → (δ' , v₂) ⊢ e ⇑ error
           --------------------
-          → δ ⊢ (e₁ · e₂) ⇓ᵉ error
+          → δ ⊢ (e₁ · e₂) ⇑ error
 
     TRY : δ ⊢ e₁ ⇓ v
         -------------
         → δ ⊢ (try e₁ catch e₂) ⇓ v 
 
-    TRY₁ : δ ⊢ e₁ ⇓ᵉ error
+    TRY₁ : δ ⊢ e₁ ⇑ error
          → δ ⊢ e₂ ⇓  v
          -------------
          → δ ⊢ (try e₁ catch e₂) ⇓ v
 
-    TRY₂ : δ ⊢ e₁ ⇓ᵉ error
-         → δ ⊢ e₂ ⇓ᵉ error
+    TRY₂ : δ ⊢ e₁ ⇑ error
+         → δ ⊢ e₂ ⇑ error
          -------------
-         → δ ⊢ (try e₁ catch e₂) ⇓ᵉ error
+         → δ ⊢ (try e₁ catch e₂) ⇑ error
 \end{code}
 
 --------------------------------------------------------------------------------
@@ -188,26 +188,17 @@ data Hole : Set where
 Stack frames with explicit holes
 \begin{code}
 data Frame : Type → Type → Set where
-  -- If₁_Then_Else_ : Hole → Γ ⊢ T → Γ ⊢ T → Frame T Bool
-  -- If₂_Then_Else_ : δ ⊢ e ⇓ true → Hole → Γ ⊢ T → Frame T T
-  -- If₃_Then_Else_ : δ ⊢ e ⇓ false → Γ ⊢ T → Hole → Frame T T
   _⊕₁_           : Hole → Γ ⊢ Nat → Frame Nat Nat
   _⊕₂_           : δ ⊢ e ⇓ n → Hole → Frame Nat Nat
   _⊝₁_           : Hole → Γ ⊢ Nat → Frame Nat Nat
   _⊝₂_           : δ ⊢ e ⇓ n → Hole → Frame Nat Nat
-  -- _≈₁_           : Hole → Γ ⊢ Nat → Frame Bool Nat
-  -- _≈₂_           : δ ⊢ e ⇓ n → Hole → Frame Bool Nat
-  -- Interestingly _·_ has only two arguments but 3 sub-trees, thus we need 3 frames
-  -- Since we don't know the expression we get from the closure we technically have
-  -- 2 holes in one frame
   App₁           : Hole → Γ ⊢ T₁ → Frame T (T₁ ⇒ T₂)
   App₂           : δ ⊢ e₁ ⇓ v₁ → Hole → Frame T T₁
   App₃           : δ ⊢ e₁ ⇓ v₁ → δ ⊢ e₂ ⇓ v₂ → Hole → Frame T T₁
 
   Try₁ : Hole → Γ ⊢ T → Frame T T
-  Try₂ : δ ⊢ e₁ ⇓ᵉ error → Hole → Frame T T
-  -- todo: is this necessary? 
-  Try₃ : δ ⊢ e₁ ⇓ᵉ error → δ ⊢ e₂ ⇓ᵉ error → Frame T T
+  Try₂ : δ ⊢ e₁ ⇑ error → Hole → Frame T T
+  Try₃ : δ ⊢ e₁ ⇑ error → δ ⊢ e₂ ⇑ error → Frame T T
 \end{code}
 
 Stack
@@ -271,24 +262,17 @@ data _⇾_ : State T → State T → Set where
   step-Try₁ : ∀ {stack : Stack Answer _ } {p₁ : δ ⊢ e₁ ⇓ v₁}
            → (δ ⊢ stack ∷ (Try₁ ◌ e₂) ↑ e₁) ⇾ (δ ⊢ stack ↓ TRY {e₂ = e₂} p₁)
   
-  step-Try₂ : ∀ {stack : Stack Answer _ } {p₁ : δ ⊢ e₁ ⇓ᵉ error}
+  step-Try₂ : ∀ {stack : Stack Answer _ } {p₁ : δ ⊢ e₁ ⇑ error}
             → (δ ⊢ stack ∷ (Try₁ ◌ e₂) ↓ p₁) ⇾ (δ ⊢ stack ∷ Try₂ p₁ ◌ ↑ e₂)
   
-  step-Tryₑ : ∀ {stack : Stack Answer _} {p₁ : δ ⊢ e₁ ⇓ᵉ error} {p₂ : δ ⊢ e₂ ⇓ v}
+  step-Tryₑ : ∀ {stack : Stack Answer _} {p₁ : δ ⊢ e₁ ⇑ error} {p₂ : δ ⊢ e₂ ⇓ v}
             → (δ ⊢ stack ∷ Try₁ ◌ e₂ ↑ e₁) ⇾ (δ ⊢ stack ∷ Try₂ p₁ ◌ ↓ p₂)
   
-  step-Try₃ : ∀ {stack : Stack Answer _ } {p₁ : δ ⊢ e₁ ⇓ᵉ error} {p₂ : δ ⊢ e₂ ⇓ v₂ }
+  step-Try₃ : ∀ {stack : Stack Answer _ } {p₁ : δ ⊢ e₁ ⇑ error} {p₂ : δ ⊢ e₂ ⇓ v₂ }
             → (δ ⊢ stack ∷ Try₂ p₁ ◌ ↓ p₂) ⇾ (δ ⊢ stack ↓ TRY₁ p₁ p₂)
 
-  step-Try₄ : ∀ {stack : Stack Answer _ } {p₁ : δ ⊢ e₁ ⇓ᵉ error} {p₂ : δ ⊢ e₂ ⇓ᵉ error}
-            → (δ ⊢ stack ∷ (Try₂ p₁ ◌) ↓ p₂) ⇾ (δ ⊢ stack ↓ TRY₂ p₁ p₂)
-
-  -- rule only applicable if there's an exception raised:
-  -- step-PopFrame : ∀ {stack : Stack Answer T} {f : Frame T₁ T} {δ : Environment Γ} {e : Γ ⊢ T₁} {r : Result T₁}
-  --                 → (δ ⊢ (stack ∷ f) 
-  -- step-Try₅ : 
-
-  
+  step-Try₄ : ∀ {stack : Stack Answer _ } {p₁ : δ ⊢ e₁ ⇑ error} {p₂ : δ ⊢ e₂ ⇑ error}
+            → (δ ⊢ stack ∷ (Try₂ p₁ ◌) ↓ p₂) ⇾ (δ ⊢ stack ↓ TRY₂ p₁ p₂)  
 \end{code}
 
 Transitive, reflexive closure of the step relation

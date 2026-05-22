@@ -9,6 +9,7 @@
 \usepackage{minted}
 \usepackage{fontspec}
 \setmonofont{JetBrains Mono}
+\usepackage{tikz}
 
 % Load Theme
 \usetheme[
@@ -35,46 +36,62 @@ Alexander Dinges, M.Sc.
 \begin{document}
 \maketitle
 
+% \begin{frame}{Outline}
+%     \tableofcontents
+% \end{frame}
+
+\AtBeginSection[]
+{
 \begin{frame}{Outline}
-    \tableofcontents
+    \tableofcontents[currentsection, hideothersubsections]
+\end{frame}
+}
+
+\section{Introduction}
+\begin{frame}{Introduction: I}
+\begin{itemize}
+    \item A \textbf{specification} describes the behavior of a programming language:
+        \begin{itemize}
+            \item Documents in plain text describing it (e.g, the JLS).
+            \item A set of evaluation rules (e.g, the semantics of WASM).
+        \end{itemize}
+    \item An \textbf{implementation} ideally adheres to the specification.
+    \item Deviation from the specification (usually) implies the existence of a bug.
+    \begin{center}
+        \large\textbf{But how would one check that no such mismatch exists?}
+    \end{center}
+\end{itemize}
+\vspace{0.6em}
+
 \end{frame}
 
-\section{Motivation}
-\begin{frame}{Motivation: I}
-\begin{itemize}
-	\item Implementations should faithfully realize language specifications.
-	\item A mismatch between specification and implementation is a bug.
-	\item Testing only checks finitely many inputs.
-	\item Specifications claim behavior for all well-formed programs.
-	\item Goal: prove semantic agreement by construction.
-\end{itemize}
-\end{frame}
+\begin{frame}{Introduction: II}
 
-\begin{frame}{Motivation: II}
+Adherence can be verified through either:
 \begin{itemize}
-    \item Practice: textual specification + conformance tests.
-    \item Limitation: tests cannot prove absence of mismatch.
-    \item Approach: encode semantics in Agda, then prove correctness.
-    \item Curry--Howard: propositions as types, proofs as programs.
-    \item Result: one proof covers all inputs simultaneously.
+    \item Manual reviews
+    \item Testing against a standard test suite, and (optionally) compare results against a \emph{reference implementation}.
 \end{itemize}
+
+\vspace{0.8em}
+\begin{center}
+    \large\textbf{Testing does not prove the \emph{absence} of bugs.}
+\end{center}
 \end{frame}
 
 \begin{frame}{Thesis}
 \begin{itemize}
-    \item Central claim: derive implementations directly from semantics.
-    \item Focus: derive abstract machines from big-step semantics.
-    \item Case studies: Arithmetic, Exceptions, and STLC.
-    % \item Prove consistency through a chain of equivalences.
+    \item Encode the specification (semantics) in a dependently-typed language (Agda).
+    \item Derive an abstract machine (interpreter) from the semantics.
+    \item \emph{Prove} that they are consistent: produce the same results on all programs.\footnote{For programs that terminate.}
 \end{itemize}
-% \chain
 \end{frame}
 
 \section{Background}
 \begin{frame}[fragile]{Background: Agda}
 \begin{itemize}
     \item Agda is a dependently typed programming language and proof assistant.
-    \item Types may depend on values, enabling type-level invariants.
+    \item Key distinction: \textbf{parameters} (before the colon) vs \textbf{indices} (after the colon).
 \end{itemize}
 \vspace{0.5ex}
 \begin{minted}{agda}
@@ -83,13 +100,862 @@ data Vec (A : Set) : ℕ → Set where
     _∷_ : A → Vec A n → Vec A (suc n)
 \end{minted}
 \begin{itemize}
-    \item Here the index tracks list length in the type.
+    \item \textbf{Parameters}: fixed across all constructors.
+    \item \textbf{Indices}: each constructor may specialise it to a specific value.
 \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Background: Propositions as Types}
+% todo: talk about constructive logic here.
+% end with: prop P is provable if there is a term of type P.
+\begin{frame}{Background: Propositions as Types}
+\begin{center}
+\begin{tabular}{l@{\hspace{1.2em}}l@{\hspace{1.5em}}l@{\hspace{1.2em}}l}
+\toprule
+\textbf{Name} & & \textbf{Agda Representation} & \\
+\midrule
+Truth        &                           & Unit type               & $\top$ \\
+Falsehood    &                           & Empty type              & $\bot$ \\
+Implication  &                           & Function type           & $P \to Q$ \\
+Negation     & $\neg P$                  & Implication into $\bot$ & $P \to \bot$ \\
+Conjunction  & $P \land Q$               & Product            & $P \times Q$ \\
+Disjunction  & $P \lor Q$                & Sum                 & $P \uplus Q$ \\
+Existential  & $\exists x.\, P(x)$       & Dependent product       & $\Sigma\,(A : Set)\,(P : A \to Set)$ \\
+Equality     & $a \equiv b$              & Indexed           & \texttt{refl : x ≡ x} \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{frame}
+
+\begin{frame}{Background: Semantic Styles}
+\begin{center}
+\begin{tikzpicture}[
+    semnode/.style={
+        circle, draw, thick,
+        minimum size=1.7cm,
+        align=center, font=\footnotesize,
+        inner sep=1pt
+    },
+    bignode/.style={semnode, double, double distance=2.5pt},
+    lbl/.style={font=\scriptsize, inner sep=1pt, fill=white}
+]
+    \node[semnode] (den)     at ( 0,    3.4) {Denotational\\[2pt]$\llbracket e \rrbracket = v$};
+    \node[bignode] (big)     at (-3.4,  0.7) {Big-Step\\[2pt]$e \Downarrow v$};
+    \node[semnode] (small)   at ( 3.4,  0.7) {Small-Step\\[2pt]$e \to^{*} (` v)$};
+    \node[semnode] (machine) at ( 0,   -1.8) {Machine\\[2pt]$[] {\uparrow}\,e \;\to^{*}\; [] {\downarrow}\,v$};
+
+    %% Big-Step <-> Denotational
+    \draw[->, thick] (big) to[bend left=18]
+        node[lbl, above, sloped] {simulate$^\mathsf{R}$} (den);
+    \draw[->, thick] (den) to[bend left=18]
+        node[lbl, below, sloped] {simulate} (big);
+
+    %% Big-Step <-> Small-Step
+    \draw[->, thick] (big) to[bend left=18]
+        node[lbl, above] {simulate} (small);
+    \draw[->, thick] (small) to[bend left=18]
+        node[lbl, below] {simulate$^\mathsf{R}$} (big);
+
+    %% Big-Step <-> Machine
+    \draw[->, thick] (big) to[bend right=18]
+        node[lbl, above, sloped] {complete} (machine);
+    \draw[->, thick] (machine) to[bend right=18]
+        node[lbl, below, sloped] {correct} (big);
+
+    %% Dashed: indirect, by composition
+    \draw[<->, dashed, thick] (den)   to[bend left=20]  (small);
+    \draw[<->, dashed, thick] (den)   to[bend right=25] (machine);
+    \draw[<->, dashed, thick] (small) to[bend right=20] (machine);
+\end{tikzpicture}
+\end{center}
+%todo: this slide might need to be split up.
+% mention: why big step semantics?
+% mention semantic equivalence.
+% derive machine from big-step, relate the rest by composition.
+\end{frame}
+
+\section{Case Study I: Arithmetic}
+
+%% 1. Syntax
+\begin{frame}[fragile]{Arithmetic: Syntax and Intrinsic Typing}
+\begin{minted}{agda}
+data Type : Set where
+    Nat  : Type
+    Bool : Type
+
+data ⊢_ : Type → Set where
+    `_            : ⊨ T → ⊢ T
+    _⊞_           : ⊢ Nat → ⊢ Nat → ⊢ Nat
+    test          : ⊢ Nat → ⊢ Bool
+    if_then_else_ : ⊢ Bool → ⊢ T → ⊢ T → ⊢ T
+\end{minted}
 \begin{itemize}
-    \item Truth and falsehood are represented as data types.
+    \item The quote constructor \texttt{`} embeds values (naturals and booleans) into syntax.
+    \item Intrinsically typed: only well-typed terms can be constructed.
+\end{itemize}
+\end{frame}
+
+%% 2. Big-Step
+\begin{frame}[fragile]{Arithmetic: Big-Step Semantics}
+\begin{minted}{agda}
+data _⇓_ : ⊢ T → ⊨ T → Set where
+    `_      : (v : ⊨ T) → (` v) ⇓ v
+    _⊞_     : e₁ ⇓ n₁ → e₂ ⇓ n₂ → (e₁ ⊞ e₂) ⇓ (n₁ + n₂)
+    test    : e ⇓ n → (test e) ⇓ (test' n)
+    if-then : e ⇓ true  → e₁ ⇓ v → (if e then e₁ else e₂) ⇓ v
+    if-else : e ⇓ false → e₂ ⇓ v → (if e then e₁ else e₂) ⇓ v
+\end{minted}
+\begin{itemize}
+    \item A derivation tree of \texttt{e ⇓ v} is a proof that \texttt{e} evaluates to \texttt{v}.
+    \item Properties: \textbf{determinism} and \textbf{totality}.
+\end{itemize}
+\end{frame}
+
+%% 3. Determinism
+\begin{frame}[fragile]{Arithmetic: Determinism}
+\begin{minted}{agda}
+deterministic : e ⇓ v₁ → e ⇓ v₂ → v₁ ≡ v₂
+\end{minted}
+\begin{itemize}
+    \item Proof by simultaneous induction on both derivations.
+    \item Most cases follow immediately: matching constructors imply matching sub-derivations.
+    % \item The conditional is the only delicate case: \texttt{if-then} against \texttt{if-else} is a contradiction --- the guard cannot evaluate to both \texttt{true} and \texttt{false}.
+\end{itemize}
+\end{frame}
+
+%% 4. Totality
+\begin{frame}[fragile]{Arithmetic: Totality}
+\begin{minted}{agda}
+total : ∀ (e : ⊢ T) → ∃ (λ v → e ⇓ v)
+\end{minted}
+\begin{itemize}
+    \item Proof by structural induction on \texttt{e}.
+    \item Produce the value and the derivation tree from recursive calls onto the subexpressions
+    % \item Example: \texttt{total (e₁ ⊞ e₂)} obtains \texttt{n₁ ﹐ p₁} and \texttt{n₂ ﹐ p₂}, then returns \texttt{n₁ + n₂ ﹐ p₁ ⊞ p₂}.
+\end{itemize}
+\end{frame}
+
+%% 5. Machine: Frames and Stack
+\begin{frame}[fragile]{Arithmetic: Abstract Machine}
+\begin{minted}{agda}
+data Frame : Type → Type → Set where
+    _𝚎𝚕𝚜𝚎_ : ⊢ T → ⊢ T → Frame T    Bool
+    _⊞₀_   : Hole → ⊢ Nat → Frame Nat Nat
+    _⊞₁_   : ⊨ Nat → Hole → Frame Nat Nat
+    test   : Hole → Frame Bool         Nat
+
+data Stack (Answer : Type) : Type → Set where
+    []  : Stack Answer Answer
+    _∷_ : Stack Answer T₁ → Frame T₁ T₂ → Stack Answer T₂
+\end{minted}
+\begin{itemize}
+    \item \texttt{Frame $T_1$ $T_2$}: indexed by the \textbf{result} type of the term, and the expected type of the \textbf{hole}.
+    \item \texttt{Stack Answer T}: a sequence of frames leading from the current focus type \texttt{T} back to the final answer type.
+\end{itemize}
+\end{frame}
+
+%% 6. Machine: States and Transitions
+\begin{frame}[fragile]{Arithmetic: Abstract Machine}
+\begin{minted}{agda}
+data State (Answer : Type) : Set where
+    ⊢_↑_ : Stack Answer T → ⊢ T → State Answer
+    ⊢_↓_ : Stack Answer T → ⊨ T → State Answer
+
+data _⇾_ : State Answer → State Answer → Set where
+  step-`  : ⊢ stack ↑ ` v             ⇾  ⊢ stack ↓ v
+  step-⊞₁ : ⊢ stack ↑ (e₁ ⊞ e₂)       ⇾  ⊢ (stack ∷ ◌ ⊞₀ e₂) ↑ e₁
+  step-⊞₂ : ⊢ (stack ∷ ◌ ⊞₀ e₂) ↓ v₁  ⇾  ⊢ (stack ∷ v₁ ⊞₁ ◌) ↑ e₂
+  step-⊞₃ : ⊢ (stack ∷ v₁ ⊞₁ ◌) ↓ v₂  ⇾  ⊢ stack ↓ (v₁ + v₂)
+  ...
+\end{minted}
+\begin{itemize}
+    \item $\uparrow$: evaluate an expression.
+    \item $\downarrow$: return a value.
+    % \item The final state \texttt{⊢ [] ↓ v} has an empty stack --- no transition applies.
+\end{itemize}
+\end{frame}
+
+%% 7. Machine: Determinism
+\begin{frame}[fragile]{Arithmetic: Machine Determinism}
+\begin{minted}{agda}
+det : (s₀ ⇾ s₁) → (s₀ ⇾ s₂) → s₁ ≡ s₂
+\end{minted}
+\begin{itemize}
+    \item At every evaluation step, there is exactly one transition the machine can take.
+    \item Proof by case distinction on both transitions.
+\end{itemize}
+\end{frame}
+
+%% 7b. Machine: Confluence
+\begin{frame}[fragile]{Arithmetic: Machine Confluence}
+\begin{minted}{agda}
+stuck : (⊢ [] ↓ v) ⇾ s → ⊥
+
+confluence : (s ⇾⃰ s₁) → (s ⇾⃰ s₂)
+    → (∀ {s'} → s₁ ⇾ s' → ⊥) → (∀ {s'} → s₂ ⇾ s' → ⊥)
+    → s₁ ≡ s₂
+\end{minted}
+\begin{itemize}
+    \item A lifted version of \texttt{det}.
+    \item Proof by induction on the two traces:
+    \begin{itemize}
+        \item Both \texttt{base}: trivial.
+        \item Both \texttt{step}: apply \texttt{det} on the single step; recursive call on the tails.
+        \item One \texttt{step}, one \texttt{base}: the stuck hypothesis contradicts the assumption that $s_1$ and $s_2$ are final states.
+    \end{itemize}
+    % \item Used in \texttt{correct} to equate the canonical run to $v'$ with the given run to $v$.
+\end{itemize}
+\end{frame}
+
+%% 8. Completeness
+\begin{frame}[fragile]{Arithmetic: Completeness}
+\begin{minted}{agda}
+complete : e ⇓ v → (⊢ stack ↑ e) ⇾⃰ (⊢ stack ↓ v)
+\end{minted}
+\begin{itemize}
+    \item Evaluating an expression $e$ in a set context, returns $v$. 
+    \item Proof by induction on the big-step derivation \texttt{e ⇓ v}.
+    \item Each big-step constructor corresponds to a sequence of machine transistions.
+\end{itemize}
+\end{frame}
+
+%% 9. Completeness: if case
+\begin{frame}[fragile]{Arithmetic: Completeness}
+\begin{minted}{agda}
+complete (if e then e₁ else e₂) v stack (if-then p p₁) =
+  (stack ↑ e₀ ⊞ e₁)
+  ⇾⟨ step-⊞₀ ⟩                           stack ∷ ◌ ⊞₀ e₁ ↑ e₀
+  ⇾⃰⟨ complete (stack ∷ ◌ ⊞₀ e₁) .. ⟩     stack ∷ ◌ ⊞₀ e₁ ↓ _
+  ⇾⟨ step-⊞₁ ⟩                           stack ∷ _ ⊞₁ ◌ ↑ e₁
+  ⇾⃰⟨ complete (stack ∷ _ ⊞₁ ◌) e₁ _ p₁ ⟩ stack ∷ _ ⊞₁ ◌ ↓ _
+  ⇾⟨ step-⊞₂ ⟩                           stack ↓ v
+\end{minted}
+\end{frame}
+
+%% 10. Correctness
+\begin{frame}[fragile]{Arithmetic: Correctness}
+\begin{minted}{agda}
+correct : (⊢ [] ↑ e) ⇾⃰ (⊢ [] ↓ v) → e ⇓ v
+\end{minted}
+\begin{itemize}
+    \item By totality, obtain some \texttt{v'} with \texttt{e ⇓ v'}.
+    \item By completeness, build a canonical run \texttt{⊢ [] ↑ e ⇾⃰ ⊢ [] ↓ v'}.
+    \item Confluence of the canonical and given run yields \texttt{v' ≡ v}.
+    \item Transport \texttt{e ⇓ v'} along the equality to obtain \texttt{e ⇓ v}.
+\end{itemize}
+\end{frame}
+
+%% 11. Small-Step
+\begin{frame}[fragile]{Arithmetic: Small-Step Semantics}
+\begin{minted}{agda}
+data _⇾_ : ⊢ T → ⊢ T → Set where
+    ξ-⊞₁     : e₁ ⇾ e₁' → (e₁ ⊞ e₂) ⇾ (e₁' ⊞ e₂)
+    ξ-⊞₂     : e₂ ⇾ e₂' → (` n₁ ⊞ e₂) ⇾ (` n₁ ⊞ e₂')
+    β-⊞      : (` n₁ ⊞ ` n₂) ⇾ ` (n₁ + n₂)
+    ξ-if     : e ⇾ e' → (if e then e₁ else e₂) ⇾ (if e' then e₁ else e₂)
+    β-if-then : (if ` true  then e₁ else e₂) ⇾ e₁
+    β-if-else : (if ` false then e₁ else e₂) ⇾ e₂
+    ...
+\end{minted}
+\begin{itemize}
+    \item $\xi$-rules: reduce a sub-expression in context.
+    \item $\beta$-rules: perform a single computation step.
+    \item Reflexive-transitive closure \texttt{⇾⃰ }.
+\end{itemize}
+\end{frame}
+
+%% 12. Big-Step <-> Small-Step
+\begin{frame}[fragile]{Arithmetic: Big-Step $\leftrightarrow$ Small-Step}
+\begin{minted}{agda}
+simulate  : e ⇓ v  →  e ⇾⃰  (` v)
+simulateᴿ : e ⇾⃰  (` v)  →  e ⇓ v
+\end{minted}
+\begin{itemize}
+    \item \textbf{\texttt{simulate}}: induction on the derivation; apply lifted $\xi$-rules, and then the appropriate $\beta$-rule.
+    \item \textbf{\texttt{simulateᴿ}}: via totality + \texttt{simulate} + confluence (values \texttt{` v} are stuck).
+\end{itemize}
+
+\begin{minted}{agda}
+⇾⃰-⊞₁ : ∀ {e₁ e₁' e₂ : ⊢ Nat} → e₁ ⇾⃰ e₁' → (e₁ ⊞ e₂) ⇾⃰ (e₁' ⊞ e₂)
+⇾⃰-⊞₁ base       = base
+⇾⃰-⊞₁ (step r p) = step (ξ-⊞₁ r) (⇾⃰-⊞₁ p)
+
+⇾⃰-⊞₂ : ∀ {n : ℕ} {e₂ e₂' : ⊢ Nat} → e₂ ⇾⃰ e₂' → (` n ⊞ e₂) ⇾⃰ (` n ⊞ e₂')
+\end{minted}
+
+
+\end{frame}
+
+%% 13. Denotational
+\begin{frame}[fragile]{Arithmetic: Denotational Semantics}
+\begin{minted}{agda}
+⟦_⟧ : ⊢ T → ⊨ T
+⟦ ` v ⟧                  = v
+⟦ e₁ ⊞ e₂ ⟧             = ⟦ e₁ ⟧ + ⟦ e₂ ⟧
+⟦ if e then e₁ else e₂ ⟧ with ⟦ e ⟧
+... | true  = ⟦ e₁ ⟧
+... | false = ⟦ e₂ ⟧
+
+simulate  : e ⇓ v  →  ⟦ e ⟧ ≡ v
+simulateᴿ : ⟦ e ⟧ ≡ v  →  e ⇓ v
+\end{minted}
+\begin{itemize}
+    \item \texttt{⟦\_⟧} evaluates expressions recursively.
+    \item \texttt{simulate}: by induction on the derivation tree.
+    \item \texttt{simulateᴿ}: by induction on the expression.
+\end{itemize}
+\end{frame}
+
+\section{Case Study II: Exceptions}
+
+%% 1. Syntax
+\begin{frame}[fragile]{Exceptions: Syntax}
+\begin{minted}{agda}
+data Exception : Set where
+    err : Exception
+
+data ⊢_ : Type → Set where
+    ...
+    throw         : Exception → ⊢ T
+    try_catch_    : ⊢ T → (Exception → ⊢ T) → ⊢ T
+\end{minted}
+\begin{itemize}
+    \item Evaluation can now produce a value \emph{or} raise an exception.
+    \item \texttt{throw} raises an exception; \texttt{try-catch} evaluates the body and handles an exception if thrown.
+\end{itemize}
+\end{frame}
+
+%% 2. Big-Step Semantics
+\begin{frame}[fragile]{Exceptions: Big-Step Semantics}
+\begin{minted}{agda}
+data Result (T : Type) : Set where
+    return : ⊨ T → Result T
+    raise  : Exception → Result T
+
+e ⇓ v  = e ⇓ʳ return v
+e ⇑ ex = e ⇓ʳ raise ex
+
+data _⇓ʳ_ : ⊢ T → Result T → Set where
+    _⊞_        : e₁ ⇓ n₁ → e₂ ⇓ n₂ → (e₁ ⊞ e₂) ⇓ (n₁ + n₂)
+    ⊞-exn₁     : e₁ ⇑ ex           → (e₁ ⊞ e₂) ⇑ ex
+    ⊞-exn₂     : e₁ ⇓ n₁ → e₂ ⇑ ex → (e₁ ⊞ e₂) ⇑ ex
+    ...
+    throw-rule : throw ex ⇑ ex
+    try-return : e ⇓ v → (try e catch h) ⇓ v
+    try-catch  : e ⇑ ex → h ex ⇓ʳ r → (try e catch h) ⇓ʳ r 
+\end{minted}
+\begin{itemize}
+    \item Each constructor gains additional exception-propagation rules (e.g.\ \texttt{⊞-exn₁}).
+\end{itemize}
+\end{frame}
+
+%% 3. Totality
+\begin{frame}[fragile]{Exceptions: Totality}
+\begin{minted}{agda}
+total : ∀ (e : ⊢ T) → ∃ (λ r → e ⇓ʳ r)
+\end{minted}
+\begin{itemize}
+    \item Follows the same structure as arithmetic: structural induction on \texttt{e}.
+    \item The result is now a \texttt{Result T}: either \texttt{return v} or \texttt{raise ex}.
+\end{itemize}
+\vspace{0.25em}
+\begin{minted}{agda}
+total (throw ex) = raise ex ﹐ throw-rule
+
+total (try e catch h) with total e
+... | return v  ﹐ p = return v ﹐ try-return p
+... | raise ex  ﹐ p = let (r ﹐ q) = total (h ex) in r ﹐ try-catch p q
+\end{minted}
+\end{frame}
+
+%% 4. Machine: Frames
+\begin{frame}[fragile]{Exceptions: Abstract Machine}
+\begin{minted}{agda}
+data Frame : Type → Type → Set where
+    ...
+    catch   : (Exception → ⊢ T) → Frame T T
+\end{minted}
+\begin{itemize}
+    \item \texttt{catch h}: stores the exception handler.
+    \item If the body raises an exception, frames should be discarded until the nearest handler is found.
+\end{itemize}
+\end{frame}
+
+%% 5. Machine: States and Transitions
+\begin{frame}[fragile]{Exceptions: Abstract Machine}
+\begin{minted}{agda}
+data State (Answer : Type) : Set where
+    ⊢_↑_ : Stack Answer T → ⊢ T      → State Answer
+    ⊢_↓_ : Stack Answer T → ⊨ T      → State Answer
+    ⊢_☇_ : Stack Answer T → Exception → State Answer
+
+step-throw     : ⊢ stack ↑ throw ex        ⇾  ⊢ stack ☇ ex
+step-try       : ⊢ stk ↑ (try e catch h)   ⇾  ⊢ stk ∷ catch h ↑ e
+step-catch-ok  : ⊢ stk ∷ catch h ↓ v       ⇾  ⊢ stk ↓ v
+step-catch-exn : ⊢ stack ∷ catch h ☇ ex    ⇾  ⊢ stack ↑ h ex
+step-drop-⊞₀   : ⊢ stack ∷ (◌ ⊞₀ e₂) ☇ ex  ⇾  ⊢ stack ☇ ex
+\end{minted}
+\begin{itemize}
+    \item Unwind mode propagates the exception, and scans the stack for the nearest catch frame
+    \item Final states: \texttt{⊢ [] ↓ v} (return) and \texttt{⊢ [] ☇ ex} (unhandled exception).
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Exceptions: Abstract Machine}
+\begin{itemize}
+    \item Why not use a generic \texttt{step-drop} rule that discards any frame?
+\end{itemize}
+\begin{minted}{agda}
+    step-discard    : ∀ {f : Frame T₁ T₂}
+                      ⊢ stack ∷ f ☇ ex        ⇾ ⊢ stack ☇ ex
+
+    step-catch-exn  : ⊢ stack ∷ catch h ☇ ex  ⇾ ⊢ stack ↑ h ex
+\end{minted}
+
+\begin{itemize}
+    \item Causes the abstract machine to be non-deterministic. 
+\end{itemize}
+
+\end{frame}
+
+
+%% 6. Machine: Determinism
+\begin{frame}[fragile]{Exceptions: Machine Determinism}
+\begin{minted}{agda}
+det : (s₀ ⇾ s₁) → (s₀ ⇾ s₂) → s₁ ≡ s₂
+\end{minted}
+\begin{itemize}
+    \item At every evaluation step, there is exactly one transition the machine can take.
+    \item Proof by case distinction on both transitions.
+\end{itemize}
+\end{frame}
+
+%% 6b. Machine: Confluence
+\begin{frame}[fragile]{Exceptions: Machine Confluence}
+\begin{minted}{agda}
+stuck-↓ : (⊢ [] ↓ v)  ⇾ s → ⊥
+stuck-☇ : (⊢ [] ☇ ex) ⇾ s → ⊥
+↓≢☇     : (⊢ [] ↓ v) ≡ (⊢ [] ☇ ex) → ⊥
+
+confluence : (s ⇾⃰ s₁) → (s ⇾⃰ s₂)
+    → (∀ {s'} → s₁ ⇾ s' → ⊥) → (∀ {s'} → s₂ ⇾ s' → ⊥)
+    → s₁ ≡ s₂
+\end{minted}
+\begin{itemize}
+    \item A lifted version of \texttt{det}: same three-case induction as Arithmetic.
+    \item There are now \emph{two} final states.
+\end{itemize}
+\end{frame}
+
+%% 7. Completeness
+\begin{frame}[fragile]{Exceptions: Completeness}
+\begin{minted}{agda}
+complete     : e ⇓ v  → (⊢ stk ↑ e) ⇾⃰ (⊢ stk ↓ v)
+complete-exn : e ⇑ ex → (⊢ stk ↑ e) ⇾⃰ (⊢ stk ☇ ex)
+\end{minted}
+\begin{itemize}
+    \item Two mutually recursive lemmas: one for each final state.
+    \item \texttt{try-return}: body succeeds; \texttt{complete} evaluates it, \texttt{step-catch-ok} discards the handler frame.
+    \item \texttt{try-catch}: \texttt{complete-exn} drives the body to \verb|☇|; \texttt{step-catch-exn} activates the handler; \texttt{complete} finishes.
+\end{itemize}
+\end{frame}
+
+%% 8. Completeness: try-catch case
+\begin{frame}[fragile]{Exceptions: Completeness}
+\begin{minted}{agda}
+complete (try e catch h) v stk (try-catch {ex = ex} pe ph) =
+  step step-try
+  (⇾⃰-transitive (complete-exn e ex (stk ∷ catch h) pe)
+  (step step-catch-exn
+  (complete (h ex) v stk ph)))
+\end{minted}
+\begin{itemize}
+    \item Push \texttt{catch h} frame, transistion to $\uparrow$ mode.
+    \item \texttt{complete-exn} drives the body to \verb|☇| at the handler frame.
+    \item \texttt{step-catch-exn} activates the handler; \texttt{complete} evaluates it to $\downarrow$.
+\end{itemize}
+\end{frame}
+
+%% 9. Correctness
+\begin{frame}[fragile]{Exceptions: Correctness}
+\begin{minted}{agda}
+correct     : (⊢ [] ↑ e) ⇾⃰ (⊢ [] ↓ v)  → e ⇓ v
+correct-exn : (⊢ [] ↑ e) ⇾⃰ (⊢ [] ☇ ex) → e ⇑ ex
+
+correct e v tr with total e
+... | return v' ﹐ p = .. -- complete → confluence → v' ≡ v
+... | raise ex  ﹐ p = .. -- complete-exn → confluence → ↓≢☇ → ex-falso
+\end{minted}
+\begin{itemize}
+    \item Totality splits into two cases.
+    \item \begin{itemize}
+        \item Both are \texttt{↓}-runs; confluence yields \texttt{v' ≡ v}.
+        \item Both are \texttt{☇}-runs; confluence yields \texttt{ex' ≡ ex}.
+        \item One is an \texttt{☇}-run, the other is a \texttt{↓}-run; confluence yields \texttt{↓ ≡ ☇}, contradiction.
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%% 10. Small-Step
+\begin{frame}[fragile]{Exceptions: Small-Step Semantics}
+\begin{minted}{agda}
+data _⇾_ : ⊢ T → ⊢ T → Set where
+    ...
+    β-⊞-exn₁   : (throw ex ⊞ e₂) ⇾ throw ex
+    β-⊞-exn₂   : (` n₁ ⊞ throw ex) ⇾ throw ex
+    
+    ξ-try       : e ⇾ e' → (try e catch h) ⇾ (try e' catch h)
+    β-try-ok    : (try (` v) catch h) ⇾ ` v
+    β-try-throw : (try (throw ex) catch h) ⇾ h ex
+\end{minted}
+\begin{itemize}
+    \item $\beta$-exn rules propagate \texttt{throw} upward through each constructor.
+    \item \texttt{β-try-throw} is the only rule that \emph{consumes} a \texttt{throw}, activating the handler.
+\end{itemize}
+\end{frame}
+
+%% 11. Big-Step <-> Small-Step
+\begin{frame}[fragile]{Exceptions: Big-Step $\leftrightarrow$ Small-Step}
+\begin{minted}{agda}
+resultExpr : Result T → ⊢ T
+resultExpr (return v) = ` v
+resultExpr (raise ex) = throw ex
+
+simulate  : e ⇓ʳ r  →  e ⇾⃰ resultExpr r
+simulateᴿ : e ⇾⃰  (resultExpr r)  →  e ⇓ʳ r
+\end{minted}
+\begin{itemize}
+    \item \texttt{resultExpr} maps a result to its stuck expression (\texttt{` v} or \texttt{throw ex}).
+    \item \textbf{\texttt{simulate}}: induction on the derivation; exception cases use $\beta$-exn rules to bubble \texttt{throw} up.
+    \item \textbf{\texttt{simulateᴿ}}: totality + \texttt{simulate} + confluence + \texttt{resultExpr-inj} then transport.
+\end{itemize}
+\end{frame}
+
+%% 12. Denotational
+\begin{frame}[fragile]{Exceptions: Denotational Semantics}
+\begin{minted}{agda}
+interpret : ⊢ T → Result T
+interpret (throw ex)      = raise ex
+interpret (try e catch h) with interpret e
+... | raise ex = interpret (h ex)
+... | return v = return v
+...
+
+simulate  : e ⇓ʳ r  →  interpret e ≡ r
+simulateᴿ : interpret e ≡ r  →  e ⇓ʳ r
+\end{minted}
+\begin{itemize}
+    \item \texttt{interpret} propagates exceptions structurally, mirroring big-step.
+    \item \texttt{simulate}: by induction; \texttt{rewrite} collapses the equality at each constructor.
+    \item \texttt{simulateᴿ}: reads the result from the equality and reconstructs the derivation.
+\end{itemize}
+\end{frame}
+
+\section{Case Study III: STLC}
+
+%% 1. Syntax
+\begin{frame}[fragile]{STLC: Contexts and Environments}
+\begin{itemize}
+    \item Contexts record the types of bound variables.
+    \item Environments record the values of bound variables of a context.
+\end{itemize}
+\begin{minted}{agda}
+data Context : Set where
+    ∅    : Context
+    _,_  : Context → Type → Context
+
+data Environment : Context → Set where
+    ∅     : Environment ∅
+    _,_   : Environment Γ → ⊨ T → Environment (Γ , T)
+\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{STLC: De Bruijn Indices}
+\begin{minted}{agda}
+
+data _∈_ : Type → Context → Set where
+  Z   : T ∈ (Γ , T)
+  S_  : T₁ ∈ Γ → T₁ ∈ (Γ , T₂)
+
+lookupₑ : Environment Γ → T ∈ Γ → Value T
+lookupₑ (γ , x) Z = x
+lookupₑ (γ , x) (S y) = lookupₑ γ y
+\end{minted}
+\end{frame}
+
+
+\begin{frame}[fragile]{STLC: Syntax and Intrinsic Typing}
+\begin{minted}{agda}
+data Type : Set where
+    Bool : Type;  Nat : Type;  _⇒_ : Type → Type → Type
+
+data _⊢_ (Γ : Context) : Type → Set where
+    Nat  : ℕ → Γ ⊢ Nat;  Bool : 𝔹 → Γ ⊢ Bool
+    Var  : T ∈ Γ → Γ ⊢ T
+    ƛ_   : (Γ , T₁) ⊢ T₂ → Γ ⊢ (T₁ ⇒ T₂)
+    _·_  : Γ ⊢ (T₁ ⇒ T₂) → Γ ⊢ T₁ → Γ ⊢ T₂
+\end{minted}
+% \begin{itemize}
+%     \item Extends Arithmetic with function types, variables, $\lambda$-abstraction, and application.
+%     \item \textbf{De Bruijn indices}: \texttt{T ∈ Γ} counts binders between a variable and its binding site.
+%     \item A term $\Gamma \vdash T$ is well-scoped and well-typed \emph{by construction}; no $\alpha$-equivalence needed.
+% \end{itemize}
+\end{frame}
+
+%% 2. Big-Step Semantics
+\begin{frame}[fragile]{STLC: Big-Step Semantics}
+\begin{minted}{agda}
+record Closure (A B : Type) : Set where
+    field {Γᶜ} : Context;  δᶜ : Environment Γᶜ;  eᶜ : (Γᶜ , A) ⊢ B
+
+⊨ (T₁ ⇒ T₂) = Closure T₁ T₂
+
+data _⊢_⇓_ : Environment Γ → Γ ⊢ T → ⊨ T → Set where
+    VAR : δ ⊢ Var x ⇓ lookupₑ δ x
+    ABS : δ ⊢ ƛ e  ⇓ ⟨ δ , e ⟩
+    app : δ ⊢ e₀ ⇓ ⟨ δᶜ , eᶜ ⟩ → δ ⊢ e₁ ⇓ v₁ → (δᶜ , v₁) ⊢ eᶜ ⇓ v
+        → δ ⊢ e₀ · e₁ ⇓ v
+\end{minted}
+\begin{itemize}
+    \item Evaluation is \emph{environment-based}: variables resolved by \texttt{lookupₑ δ}.
+    \item A $\lambda$ captures the current environment $\delta$ as a closure.
+    \item Application evaluates function, argument, then runs the closure body in \texttt{δᶜ , v₁}.
+\end{itemize}
+\end{frame}
+
+%% 3. Determinism
+\begin{frame}[fragile]{STLC: Determinism}
+\begin{minted}{agda}
+deterministic : δ ⊢ e ⇓ v₁ → δ ⊢ e ⇓ v₂ → v₁ ≡ v₂
+\end{minted}
+\begin{itemize}
+    \item Proof by simultaneous induction on both derivations.
+    \item \texttt{NAT}, \texttt{BOOL}, \texttt{VAR}, \texttt{ABS}: trivial.
+    \item \texttt{app}: induction applied three times, on function value, argument value, and closure body.
+\end{itemize}
+\end{frame}
+
+%% 4. Totality
+\begin{frame}[fragile]{STLC: Totality}
+\begin{minted}{agda}
+{-# TERMINATING #-}
+total : ∀ (e : Γ ⊢ T) → ∃ (λ v → δ ⊢ e ⇓ v)
+total (e₁ · e₂) with total e₁ | total e₂
+... | ⟨ δᶜ , eᶜ ⟩ ʻ p | v₂ ʻ q with total {δ = δᶜ , v₂} eᶜ
+... | v ʻ r = v ʻ app p q r
+\end{minted}
+\begin{itemize}
+    \item STLC is strongly normalising (always terminates with a value), but Agda cannot verify this structurally.
+    % \item The recursive call on \texttt{eᶜ} goes through a closure obtained by evaluating \texttt{e₁} --- not a sub-expression of \texttt{e₁ · e₂}.
+    \item The \texttt{\{-\# TERMINATING \#-\}} pragma can be used to disable the check, leaving the burden of proof to the programmer.
+\end{itemize}
+\end{frame}
+
+%% 5. Machine: Frames
+\begin{frame}[fragile]{STLC: Abstract Machine}
+\begin{minted}{agda}
+data Frame : Type → Type → Set where
+    ...
+    app₁   : Hole → Γ ⊢ A            → Frame B (A ⇒ B)
+    app₂   : ⊨ (A ⇒ B) → Hole        → Frame B A      
+    app₃   : Environment Γ → ⊨ (A ⇒ B) → ⊨ A → Hole → Frame B B
+\end{minted}
+\begin{itemize}
+    \item Application decomposes into \emph{three} sequential frames.
+    \item \texttt{app₃} stores the \emph{caller's environment} $\delta$ so it can be restored after the call.
+    \item mirrors the behaviour in the big-step \texttt{app} rule.
+\end{itemize}
+\end{frame}
+
+%% 6. Machine: States and Transitions
+\begin{frame}[fragile]{STLC: Abstract Machine}
+\begin{minted}{agda}
+data State (Answer : Type) : Set where
+    _⊢_↑_ : Environment Γ → Stack Answer A → Γ ⊢ A → State Answer
+    _⊢_↓_ : Environment Γ → Stack Answer A → ⊨ A   → State Answer
+
+step-ƛ  : δ ⊢ stack ↑ ƛ e   ⇾  δ ⊢ stack ↓ ⟨ δ , e ⟩
+
+step-·₂ : δ ⊢ stack ∷ app₂ ⟨ δᶜ , eᶜ ⟩ ◌ ↓ v₂
+        ⇾  (δᶜ , v₂) ⊢ stack ∷ app₃ δ ⟨ δᶜ , eᶜ ⟩ v₂ ◌ ↑ eᶜ
+
+step-·₃ : δ ⊢ stack ∷ app₃ δ' clo v₂ ◌ ↓ v₃  ⇾  δ' ⊢ stack ↓ v₃
+\end{minted}
+\begin{itemize}
+    \item Each state carries the \emph{current environment} $\delta$ alongside the stack.
+    \item \texttt{step-·₂}: switches to closure environment \texttt{δᶜ , v₂} to evaluate the body.
+    \item \texttt{step-·₃}: returns to the caller's environment \texttt{δ'} from the \texttt{app₃} frame.
+\end{itemize}
+\end{frame}
+
+%% 7. Machine: Determinism
+% \begin{frame}[fragile]{STLC: Machine Determinism}
+% \begin{minted}{agda}
+% det : (s₀ ⇾ s₁) → (s₀ ⇾ s₂) → s₁ ≡ s₂
+% \end{minted}
+% \begin{itemize}
+%     \item At every evaluation step, there is exactly one transition the machine can take.
+%     \item Proof by case distinction on both transitions.
+% \end{itemize}
+% \end{frame}
+
+% %% 7b. Machine: Confluence
+% \begin{frame}[fragile]{STLC: Machine Confluence}
+% \begin{minted}{agda}
+% stuck : (δ ⊢ [] ↓ v) ⇾ s → ⊥
+
+% confluence : (s ⇾⃰ s₁) → (s ⇾⃰ s₂)
+%     → (∀ {s'} → s₁ ⇾ s' → ⊥) → (∀ {s'} → s₂ ⇾ s' → ⊥)
+%     → s₁ ≡ s₂
+% \end{minted}
+% \begin{itemize}
+%     \item A lifted version of \texttt{det}: same induction pattern as before.
+% \end{itemize}
+% \end{frame}
+
+%% 8. Completeness
+\begin{frame}[fragile]{STLC: Completeness}
+\begin{minted}{agda}
+complete : δ ⊢ e ⇓ v → (δ ⊢ stack ↑ e) ⇾⃰ (δ ⊢ stack ↓ v)
+\end{minted}
+\begin{itemize}
+    \item Proof by induction on the big-step derivation; generalised over an arbitrary \texttt{stack}.
+    \item \texttt{app} case: three recursive calls to handle \texttt{step-·}, \texttt{step-·₁}, \texttt{step-·₂}, \texttt{step-·₃}.
+    % \item \texttt{step-·₂} switches the environment from $\delta$ to $\delta^c,v_1$ to enter the closure body.
+    % \item \texttt{step-·₃} restores $\delta$ from the \texttt{app₃} frame, closing the application trace.
+\end{itemize}
+\end{frame}
+
+%% 9. Completeness: app case
+\begin{frame}[fragile]{STLC: Completeness}
+\begin{minted}{agda}
+complete δ stack (e₀ · e₁) v (app {δᶜ = δᶜ} {eᶜ} {v₁} p p₁ p₂) =
+  proof         δ ⊢ stack ↑ (e₀ · e₁)
+  ⇾⟨ step-· ⟩                  δ ⊢ stack ∷ app₁ ◌ e₁ ↑ e₀
+  ⇾⃰⟨ complete δ (stack ∷ app₁ ◌ e₁) e₀ ⟨ δᶜ , eᶜ ⟩ p ⟩ ...
+  ⇾⟨ step-·₁ ⟩ ... ⇾⃰⟨ complete δ (stack ∷ app₂ _ ◌) e₁ v₁ p₁ ⟩ ...
+  ⇾⟨ step-·₂ ⟩
+    (δᶜ , v₁) ⊢ stack ∷ app₃ δ ⟨ δᶜ , eᶜ ⟩ v₁ ◌ ↑ eᶜ
+  ⇾⃰⟨ complete (δᶜ , v₁) (stack ∷ app₃ δ _ v₁ ◌) eᶜ v p₂ ⟩ ...
+  ⇾⟨ step-·₃ ⟩  δ ⊢ stack ↓ v  ∎
+\end{minted}
+\begin{itemize}
+    \item Six transitions; three IHs handle the sub-evaluations.
+    \item Environment switches at \texttt{step-·₂} (enter closure) and back at \texttt{step-·₃} (exit).
+\end{itemize}
+\end{frame}
+
+%% 10. Correctness
+\begin{frame}[fragile]{STLC: Correctness}
+\begin{minted}{agda}
+correct : (δ ⊢ [] ↑ e) ⇾⃰ (δ ⊢ [] ↓ v) → δ ⊢ e ⇓ v
+\end{minted}
+\begin{itemize}
+    \item Follows the same confluence argument.
+    \item Obtain \texttt{v', p : $e \Downarrow v$} from \texttt{total e}; build run via \texttt{complete}.
+    \item Confluence of both runs run yields \texttt{δ ⊢ [] ↓ v' ≡ δ ⊢ [] ↓ v}.
+    \item Injectively, \texttt{v' ≡ v}; therefore we can obtain $e \Downarrow v$.
+\end{itemize}
+\end{frame}
+
+%% 11. Small-Step
+\begin{frame}[fragile]{STLC: Small-Step Semantics}
+\begin{minted}{agda}
+data Normal : Γ ⊢ T → Set where
+    nat : Normal (Nat n);  bool : Normal (Bool b);  closure : Normal (ƛ e)
+
+data _↦_ : Γ ⊢ T → Γ ⊢ T → Set where
+    β-⊞         : Nat n₁ ⊞ Nat n₂ ↦ Nat (n₁ + n₂)
+    β-app       : ƛ e · v ↦ e [ v ]        
+    ξ-app-left  : e₁ ↦ e₁' → e₁ · e₂ ↦ e₁' · e₂
+    ξ-app-right : Normal e₁ → e₂ ↦ e₂' → e₁ · e₂ ↦ e₁ · e₂'
+    ...
+\end{minted}
+\begin{itemize}
+    \item \textbf{Small-step is Substitution-based}: \texttt{β-app} uses \texttt{\_[\_]}, substituting the argument into the body (shifting indices in the process).
+    \item \textbf{Big-step is environment-based}: the rule \texttt{app} extends $\delta$ with the argument $v$.
+\end{itemize}
+\end{frame}
+
+%% 12. Denotational
+\begin{frame}[fragile]{STLC: Denotational Semantics}
+\begin{minted}{agda}
+evaluate : Environment Γ → Γ ⊢ T → ⊨ T
+evaluate δ (ƛ e)      = ⟨ δ , e ⟩
+evaluate δ (e₁ · e₂) with evaluate δ e₁
+... | ⟨ δᶜ , eᶜ ⟩    = apply ⟨ δᶜ , eᶜ ⟩ (evaluate δ e₂)
+
+apply : ⊨ (A ⇒ B) → ⊨ A → ⊨ B
+apply ⟨ δᶜ , eᶜ ⟩ v = evaluate (δᶜ , v) eᶜ
+
+{-# TERMINATING #-}
+simulate  : evaluate δ e ≡ v  →  δ ⊢ e ⇓ v
+simulateᴿ : δ ⊢ e ⇓ v  →  evaluate δ e ≡ v
+\end{minted}
+\begin{itemize}
+    \item Same \texttt{TERMINATING} caveat: the closure body call is not structurally smaller.
+    \item \texttt{simulate}/\texttt{simulateᴿ}: each direction by induction; \texttt{rewrite} at each constructor.
+\end{itemize}
+\end{frame}
+
+%% 13. Big-Step <-> Small-Step (open)
+\begin{frame}[fragile]{STLC: Big-Step $\leftrightarrow$ Small-Step}
+\begin{minted}{agda}
+  e [ v₁ ] ↦* embed v₂ 
+→ δ ⊢ (ƛ e) · v₁ ⇓ v₂
+\end{minted}
+\begin{itemize}
+    \item The \texttt{simulateᴿ} direction for \texttt{app} must convert a small-step trace into a big-step derivation --- but big-step is environment-based, so the result value $v_2$ must already be known.
+    \item Alternatively, if can quote values back into syntax:
+\end{itemize}
+
+\begin{minted}{agda}
+   δ ⊢ s [ ` v ]                  ⇓ v₂  
+→  δ ⊢ s [ ` ⟨ δᶜ , eᶜ ⟩ · ` v₁ ] ⇓ v₂
+\end{minted}
+
+\end{frame}
+
+\section{Related Work}
+\begin{frame}{Related Work}
+\begin{itemize}
+    \item Hutton derives machines by CPS transformation and defunctionalization.
+    \item This thesis derives machines from big-step semantics by reifying frames.
+    \item Conceptually: frame $\approx$ defunctionalized continuation.
+    \item Hutton and Wright also study exceptions and verified compilation.
+\end{itemize}
+\end{frame}
+
+\section{Conclusion}
+\begin{frame}{Conclusion: Summary}
+\begin{itemize}
+    \item Presented a systematic process for deriving an abstract machine from big-step semantics for Arithmetic, Exceptions, and STLC.
+    \item The derivation proceeds by:
+    \begin{itemize}
+        \item representing the process of evaluation explicitly via \textbf{frames}.
+        \item defining machine states as a \textbf{stack of frames} in three modes: \emph{eval}, \emph{return}, and (for exceptions) \emph{unwind};
+        \item defining \textbf{transition rules} by mimicking the in-order evaluation of terms.
+    \end{itemize}
+    \item \textbf{Completeness}: the machine trace produces the same value as a big-step derivation.
+    \item \textbf{Correctness}: totality yields a run of the machine to $v'$; any run to $v$ must converge to the same result.
+    \item \textbf{Compositionality}: derive an equivalence between other forms of semantics using big-step as an intermediary.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Conclusion: Limitations and Future Work}
+\begin{itemize}
+    \item Current route assumes totality and does not account for non-terminating programs.
+    \item STLC totality currently uses a termination pragma.
+    \item STLC small-step $\leftrightarrow$ big-step equivalence is open.
+\end{itemize}
+\end{frame}
+
+\appendix
+
+\section*{Appendix}
+
+\begin{frame}[fragile]{Appendix: Propositions as Types}
+\begin{itemize}
+    \item Propositions are types, proofs are terms.
 \end{itemize}
 \begin{minted}{agda}
 data ⊤ : Set where
@@ -100,12 +966,9 @@ data ⊥ : Set where
 ex-falso : {P : Set} → ⊥ → P
 ex-falso ()
 \end{minted}
-\begin{itemize}
-    \item A well-typed term is simultaneously a program and a proof.
-\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Background: Connectives in Agda}
+\begin{frame}[fragile]{Appendix: Connectives in Agda}
 \begin{minted}{agda}
 ¬_ : Set → Set
 ¬ P = P → ⊥
@@ -120,14 +983,9 @@ data _⊎_ (P Q : Set) : Set where
     inl : P → P ⊎ Q
     inr : Q → P ⊎ Q
 \end{minted}
-\begin{itemize}
-    \item Negation is implication into falsehood.
-    \item Product and sum model conjunction and disjunction.
-    \item $\Sigma$-types model dependent pairs (existentials).
-\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Background: Equality and Naturals}
+\begin{frame}[fragile]{Appendix: Equality and Naturals}
 \begin{minted}{agda}
 data _≡_ {A : Set} (x : A) : A → Set where
     refl : x ≡ x
@@ -140,13 +998,9 @@ _+_ : ℕ → ℕ → ℕ
 zero  + m = m
 suc n + m = suc (n + m)
 \end{minted}
-\begin{itemize}
-    \item Equality is indexed and proved by \texttt{refl}.
-    \item Addition is defined structurally on the first argument.
-\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Background: Helper Lemmas (Rewrite)}
+\begin{frame}[fragile]{Appendix: Rewrite and Induction}
 \begin{minted}{agda}
 n+0≡n : (n : ℕ) → n + zero ≡ n
 n+0≡n zero    = refl
@@ -155,427 +1009,22 @@ n+0≡n (suc n) rewrite n+0≡n n = refl
 n+sm≡n : (n m : ℕ) → n + suc m ≡ suc (n + m)
 n+sm≡n zero    m = refl
 n+sm≡n (suc n) m rewrite n+sm≡n n m = refl
-\end{minted}
-\begin{itemize}
-    \item \texttt{rewrite} substitutes equals in the current goal.
-    \item Each recursive case reduces to \texttt{refl} after rewriting.
-\end{itemize}
-\end{frame}
 
-\begin{frame}[fragile]{Background: Main Theorem Example}
-\begin{minted}{agda}
 +-commutative : (n m : ℕ) → n + m ≡ m + n
 +-commutative zero    m rewrite n+0≡n m = refl
-+-commutative (suc n) m
-  rewrite +-commutative n m = sym (n+sm≡n m n)
++-commutative (suc n) m rewrite +-commutative n m = sym (n+sm≡n m n)
 \end{minted}
-\begin{itemize}
-    \item Strategy: structural induction on \texttt{n}.
-    \item Base case uses \texttt{n+0≡n}.
-    \item Step case uses induction hypothesis and helper lemma \texttt{n+sm≡n}.
-\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Background: Termination Obligation}
+\begin{frame}[fragile]{Appendix: Termination}
 \begin{minted}{agda}
 diverging : ⊥
 diverging = diverging
 \end{minted}
 \begin{itemize}
-    \item Without termination, \texttt{ex-falso} would make logic inconsistent.
-    \item Agda accepts only structurally decreasing recursion by default.
-    \item \verb|{-# TERMINATING #-}| can bypass this, shifting trust to the programmer.
-\end{itemize}
-\end{frame}
-
-\begin{frame}{Background: Variables and Semantics}
-\begin{itemize}
-    \item De Bruijn indices avoid capture and $\alpha$-equivalence issues.
-    \item Contexts track variable types: $\Gamma ::= \emptyset \mid \Gamma, T$.
-    \item Typing judgment: $\Gamma \vdash e : T$.
-    \item Four views of semantics are related in this thesis:
-\end{itemize}
-% \chain
-\end{frame}
-
-\section{Case Study I: Arithmetic}
-\begin{frame}[fragile]{Arithmetic: Syntax and Intrinsic Typing}
-\begin{minted}{agda}
-data Type : Set where
-    Nat  : Type
-    Bool : Type
-
-data ⊢_ : Type → Set where
-    `_            : ⊨ T → ⊢ T
-    _⊞_           : ⊢ Nat → ⊢ Nat → ⊢ Nat
-    test          : ⊢ Nat → ⊢ Bool
-    if_then_else_ : ⊢ Bool → ⊢ T → ⊢ T → ⊢ T
-\end{minted}
-\begin{itemize}
-    \item Ill-typed programs are not representable.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Big-Step Semantics}
-\begin{minted}{agda}
-data _⇓_ : ⊢ T → ⊨ T → Set where
-    `_      : (v : ⊨ T) → (` v) ⇓ v
-    _⊞_     : e₁ ⇓ n₁ → e₂ ⇓ n₂ → (e₁ ⊞ e₂) ⇓ (n₁ + n₂)
-    test    : e ⇓ n → (test e) ⇓ (test' n)
-    if-then : e ⇓ true  → e₁ ⇓ v → (if e then e₁ else e₂) ⇓ v
-    if-else : e ⇓ false → e₂ ⇓ v → (if e then e₁ else e₂) ⇓ v
-\end{minted}
-
-\begin{itemize}
-    \item Properties proved: determinism and totality.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Deterministic and Total}
-\begin{minted}{agda}
-deterministic : ∀ {e : ⊢ T} {v₁ v₂ : ⊨ T}
-    → e ⇓ v₁ → e ⇓ v₂ → v₁ ≡ v₂
-
-total : ∀ (e : ⊢ T) → ∃ (λ v → e ⇓ v)
-\end{minted}
-\begin{itemize}
-    \item Determinism proof: induction on evaluation derivations.
-    \item In conditional cases, contradictory branch choices yield impossible equalities.
-    \item Totality proof: structural induction on syntax of expressions.
-    \item Recursive calls return both a value and a derivation tree.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Reverse Simulation Proof Shape}
-\begin{minted}{agda}
-simulateᴿ : ∀ {T : Type} {e : ⊢ T} {v : ⊨ T}
-  → e ⇾⃰ ` v → e ⇓ v
-
-eq = ⇾⃰-confluence tr' tr ¬step-` ¬step-`
-\end{minted}
-\begin{itemize}
-    \item Start from totality: obtain \texttt{v'} with big-step proof \texttt{e ⇓ v'}.
-    \item Use forward simulation to build \texttt{tr' : e ⇾⃰ ` v'}.
-    \item Use confluence on \texttt{tr'} and given run \texttt{tr : e ⇾⃰ ` v}.
-    \item Since both targets are stuck values, confluence yields \texttt{v' ≡ v}.
-    \item Transport the big-step proof across that equality via \texttt{subst}.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Small-Step and Simulation}
-
-% todo: how do I fit the proof for this on the slides?
-\begin{minted}{agda}
-simulate : ∀ {T : Type} {e : ⊢ T} {v : ⊨ T}
-    → e ⇓ v → e ⇾⃰ ` v
-
-simulate (` v) = base
-simulate (p₁ ⊞ p₂) = ...
-simulate (if-then pe p₁) = ...
-simulate (if-else pe p₂) = ...
-\end{minted}
-% \begin{itemize}
-%     \item Proof uses lifted congruence ($\xi$) rules over transitive closure.
-%     \item The addition case composes three traces: left operand, right operand, then $\beta$-step.
-%     \item The if-cases first reduce the guard, then take $\beta$-if-then or $\beta$-if-else.
-% \end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Denotational Semantics}
-\begin{minted}{agda}
-⟦_⟧ : ∀ {T} → ⊢ T → ⊨ T
-⟦ ` v ⟧                  = v
-⟦ e₁ ⊞ e₂ ⟧             = ⟦ e₁ ⟧ + ⟦ e₂ ⟧
-⟦ test e ⟧               = test' ⟦ e ⟧
-⟦ if e then e₁ else e₂ ⟧ with ⟦ e ⟧
-... | true  = ⟦ e₁ ⟧
-... | false = ⟦ e₂ ⟧
-\end{minted}
-\begin{itemize}
-    \item Equivalence theorem: $e \Downarrow v \leftrightarrow \llbracket e \rrbracket \equiv v$.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Abstract Machine Structure}
-\begin{minted}{agda}
-data Frame : Type → Type → Set where
-    _𝚎𝚕𝚜𝚎_ : ⊢ T → ⊢ T → Frame T Bool
-    _⊞₀_   : Hole → ⊢ Nat → Frame Nat Nat
-    _⊞₁_   : ⊨ Nat → Hole → Frame Nat Nat
-    test   : Hole → Frame Bool Nat
-
-data State (Answer : Type) : Set where
-    ⊢_↓_ : Stack Answer T → ⊨ T → State Answer
-    ⊢_↑_ : Stack Answer T → ⊢ T → State Answer
-\end{minted}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Completeness Proof (Machine)}
-\begin{minted}{agda}
-complete : ∀ (e : ⊢ T) (v : ⊨ T) (stack : Stack Answer T)
-    → e ⇓ v → (⊢ stack ↑ e) ⇾⃰ (⊢ stack ↓ v)
-\end{minted}
-\begin{itemize}
-    \item Proof by induction on the big-step derivation \texttt{e ⇓ v}.
-    \item Generalized over arbitrary \texttt{stack}, not only \texttt{[]}, because recursive calls push frames.
-    \item Each big-step constructor is matched by a short machine trace.
-    \item Composition uses transitivity of \texttt{⇾⃰} to concatenate subtraces.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Correctness Proof (Machine)}
-\begin{minted}{agda}
-correct : ∀ (e : ⊢ T) (v : ⊨ T)
-    → (⊢ [] ↑ e) ⇾⃰ (⊢ [] ↓ v) → e ⇓ v
-\end{minted}
-\begin{itemize}
-    \item Start from totality of big-step to obtain some \texttt{v'} and proof \texttt{e ⇓ v'}.
-    \item By completeness, build a canonical machine run \texttt{⊢ [] ↑ e ⇾⃰ ⊢ [] ↓ v'}.
-    \item Compare canonical run with given run \texttt{⊢ [] ↑ e ⇾⃰ ⊢ [] ↓ v} using confluence.
-    \item Project state equality to value equality and transport \texttt{e ⇓ v'} to \texttt{e ⇓ v}.
-    \item Equality of final states is projected to equality of returned values.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Arithmetic: Example Completeness Case (if)}
-\begin{minted}{agda}
-complete (if e then e₁ else e₂) v stack (if-then p p₁) =
-  step step-𝚒𝚏
-  (⇾⃰-transitive (complete e _ (stack ∷ (e₁ 𝚎𝚕𝚜𝚎 e₂)) p)
-  (step step-𝚝𝚑𝚎𝚗
-  (complete e₁ v stack p₁)))
-\end{minted}
-\begin{itemize}
-    \item Push branch frame, evaluate guard under extended stack.
-    \item After guard returns \texttt{true}, take \texttt{step-then}.
-    \item Continue by induction hypothesis on selected branch.
-\end{itemize}
-\end{frame}
-
-\section{Case Study II: Exceptions}
-\begin{frame}[fragile]{Exceptions: Syntax Extension}
-\begin{minted}{agda}
-data Exception : Set where
-    err : Exception
-
-data ⊢_ where
-    ...
-    throw      : Exception → ⊢ T
-    try_catch_ : ⊢ T → (Exception → ⊢ T) → ⊢ T
-\end{minted}
-\begin{itemize}
-    \item Evaluation now yields either a value or an exception.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Exceptions: Big-Step with Results}
-\begin{minted}{agda}
-data Result (T : Type) : Set where
-    return : ⊨ T → Result T
-    raise  : Exception → Result T
-
-data _⇓ʳ_ : ⊢ T → Result T → Set where
-    throw-rule : throw ex ⇓ʳ raise ex
-    try-return : e ⇓ v → (try e catch h) ⇓ v
-    try-catch  : e ⇑ ex → h ex ⇓ʳ r → (try e catch h) ⇓ʳ r
-\end{minted}
-\begin{itemize}
-    \item Every construct has success and propagation behavior.
-    \item \texttt{try-return}: handler is skipped when body succeeds.
-    \item \texttt{try-catch}: body exception triggers handler evaluation.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Exceptions: Small-Step Bridge}
-\begin{minted}{agda}
-resultExpr : ∀ {T : Type} → Result T → ⊢ T
-resultExpr (return v) = ` v
-resultExpr (raise ex) = throw ex
-
-simulate : ∀ {T : Type} {e : ⊢ T} {r : Result T}
-    → e ⇓ʳ r → e ⇾⃰ resultExpr r
-\end{minted}
-\begin{itemize}
-    \item Final expressions are stuck: neither quoted values nor throws step further.
-    \item This stuckness lemma is required for the reverse direction via confluence.
-    \item Lifted \texttt{ξ-try} composes body reduction with outer try-context.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Exceptions: Abstract Machine with Unwind Mode}
-\begin{minted}{agda}
-data State (Answer : Type) : Set where
-    ⊢_↑_ : Stack Answer T → ⊢ T      → State Answer
-    ⊢_↓_ : Stack Answer T → ⊨ T      → State Answer
-    ⊢_☇_ : Stack Answer T → Exception → State Answer
-
-step-throw     : ⊢ stack ↑ throw ex ⇾ ⊢ stack ☇ ex
-step-try       : ⊢ stk ↑ (try e catch h) ⇾ ⊢ stk ∷ catch h ↑ e
-step-catch-exn : ⊢ stack ∷ catch h ☇ ex ⇾ ⊢ stack ↑ h ex
-\end{minted}
-\end{frame}
-
-\begin{frame}[fragile]{Exceptions: Completeness Proofs}
-\begin{minted}{agda}
-complete     : e ⇓ v  → (⊢ stk ↑ e) ⇾⃰ (⊢ stk ↓ v)
-complete-exn : e ⇑ ex → (⊢ stk ↑ e) ⇾⃰ (⊢ stk ☇ ex)
-\end{minted}
-\begin{itemize}
-    \item Two mutually recursive lemmas are required: value case and exception case.
-    \item \texttt{try-catch} connects both directions:
-    \item \texttt{complete} calls \texttt{complete-exn} when the body raises.
-    \item \texttt{complete-exn} calls \texttt{complete} when evaluating the handler.
-    \item Base outcomes differ: values end in \texttt{↓}, exceptions end in \texttt{☇}.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Exceptions: Correctness Proofs}
-\begin{minted}{agda}
-correct     : (⊢ [] ↑ e) ⇾⃰ (⊢ [] ↓ v)  → e ⇓ v
-correct-exn : (⊢ [] ↑ e) ⇾⃰ (⊢ [] ☇ ex) → e ⇑ ex
-\end{minted}
-\begin{itemize}
-    \item Proof begins with totality: \texttt{e} evaluates to either \texttt{return v'} or \texttt{raise ex'}.
-    \item In the matching terminal mode, confluence yields equality of terminal payloads.
-    \item In the mismatching mode (\texttt{↓} vs \texttt{☇}), confluence yields constructor contradiction.
-    \item This contradiction is discharged with \texttt{ex-falso}, giving the desired result.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Exceptions: Correctness Case Analysis}
-\begin{minted}{agda}
-correct e v tr with total e
-... | return v' ﹐ p = ... confluence ...
-... | raise ex  ﹐ p = ... ex-falso (↓≢☇ ...)
-\end{minted}
-\begin{itemize}
-    \item If totality yields \texttt{return v'}, canonical completeness run ends in \texttt{↓ v'}.
-    \item Confluence with given run to \texttt{↓ v} gives \texttt{v' = v}.
-    \item If totality yields \texttt{raise ex}, completeness-exn ends in \texttt{☇ ex}.
-    \item Confluence with a \texttt{↓}-run yields constructor clash, discharged by absurdity.
-\end{itemize}
-\end{frame}
-
-\section{Case Study III: STLC}
-\begin{frame}[fragile]{STLC: Syntax and De Bruijn Membership}
-\begin{minted}{agda}
-data _⊢_ (Γ : Context) : Type → Set where
-    Nat  : ℕ → Γ ⊢ Nat
-    Bool : 𝔹 → Γ ⊢ Bool
-    Var  : T ∈ Γ → Γ ⊢ T
-    ƛ_   : (Γ , T₁) ⊢ T₂ → Γ ⊢ (T₁ ⇒ T₂)
-    _·_  : Γ ⊢ (T₁ ⇒ T₂) → Γ ⊢ T₁ → Γ ⊢ T₂
-\end{minted}
-\begin{itemize}
-    \item Context-indexed syntax guarantees scope and typing discipline.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{STLC: Closures and Big-Step Application}
-\begin{minted}{agda}
-record Closure (A B : Type) : Set where
-    constructor ⟨_,_⟩
-    field
-        {Γᶜ} : Context
-        δᶜ   : Environment Γᶜ
-        eᶜ   : (Γᶜ , A) ⊢ B
-
-app : δ ⊢ e₀ ⇓ ⟨ δᶜ , eᶜ ⟩ → δ ⊢ e₁ ⇓ v₁
-     → (δᶜ , v₁) ⊢ eᶜ ⇓ v → δ ⊢ e₀ · e₁ ⇓ v
-\end{minted}
-\begin{itemize}
-    \item Application first evaluates function position to a closure.
-    \item Then evaluates the argument and runs the body in captured environment.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{STLC: Totality and Termination Note}
-\begin{minted}{agda}
-{-# TERMINATING #-}
-total : ∀ (e : Γ ⊢ T) → ∃ (λ v → δ ⊢ e ⇓ v)
-
-total (Var x) = ...
-total (ƛ e)   = ...
-total (e₁ · e₂) with total e₁ | total e₂
-... | ... = ...
-\end{minted}
-\begin{itemize}
-    \item STLC is strongly normalizing, but this development uses a termination pragma.
-    \item Reason: recursive call proceeds through closure body, not obviously structural to Agda.
-    \item So accepted on programmer trust rather than checker's structural criterion.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{STLC: Abstract Machine for Application}
-\begin{minted}{agda}
-data Frame : Type → Type → Set where
-    app₁ : Hole → Γ ⊢ A      → Frame B (A ⇒ B)
-    app₂ : ⊨ (A ⇒ B) → Hole → Frame B A
-    app₃ : Environment Γ → ⊨ (A ⇒ B) → ⊨ A → Hole → Frame B B
-
-step-·  : (δ ⊢ stack ↑ e₁ · e₂) ⇾ (δ ⊢ stack ∷ app₁ ◌ e₂ ↑ e₁)
-step-·₂ : ... ⇾ ((δᶜ , v₂) ⊢ stack ∷ app₃ δ ⟨ δᶜ , eᶜ ⟩ v₂ ◌ ↑ eᶜ)
-step-·₃ : ... ⇾ (δ′ ⊢ stack ↓ v₃)
-\end{minted}
-\end{frame}
-
-\begin{frame}[fragile]{STLC: Proof Status in This Thesis}
-\begin{minted}{agda}
-complete : (δ ⊢ stack ↑ e ⇾⃰  δ ⊢ stack ↓ v)
-\end{minted}
-\begin{itemize}
-    \item Completed: big-step semantics, denotational semantics, and machine correspondence.
-    \item Completed: machine completeness/correctness follows arithmetic-style confluence argument.
-    \item Open: big-step $\leftrightarrow$ small-step proof is not finished in this thesis.
-    \item Main obstacle: bridge between substitution-based small-step and environment-based big-step.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{STLC: Why Small-Step Equivalence Remains Open}
-\begin{minted}{agda}
-embed : ∀ {T : Type} → ⊨ T → ∅ ⊢ T
-embed {T = T₁ ⇒ T₂} ⟨ δᶜ , eᶜ ⟩ = ƛ ?
-\end{minted}
-\begin{itemize}
-    \item To state simulation, closure values must be re-embedded as syntax.
-    \item The captured environment in closures prevents a direct embedding.
-    \item Small-step uses substitution; big-step uses environment lookup.
-    \item Proving these two mechanisms equivalent is left as future work.
-\end{itemize}
-\end{frame}
-
-\section{Related Work}
-\begin{frame}{Related Work}
-\begin{itemize}
-    \item Hutton derives machines by CPS transformation and defunctionalization.
-    \item This thesis derives machines from big-step semantics by reifying frames.
-    \item Conceptual correspondence: frame $\approx$ defunctionalized continuation.
-    \item Hutton and Wright also study exceptions and verified compilation.
-\end{itemize}
-\end{frame}
-
-\section{Conclusion}
-\begin{frame}{Conclusion: Summary}
-\begin{itemize}
-    \item A systematic derivation route from semantics to abstract machines.
-    \item Demonstrated for arithmetic, exceptions, and STLC.
-    \item Established equivalence links across semantic styles.
-    \item Proved machine consistency with big-step semantics in each completed case study.
-\end{itemize}
-% \chain
-\end{frame}
-
-\begin{frame}{Conclusion: Limitations and Future Work}
-\begin{itemize}
-    \item Current route assumes totality and does not model divergence directly.
-    \item STLC totality currently uses a trusted termination pragma.
-    \item STLC small-step $\leftrightarrow$ big-step equivalence is open.
-    \item Future directions:
-    \begin{itemize}
-        \item Coinductive big-step or small-step-first derivation for divergence.
-        \item Strengthen STLC termination and equivalence proofs.
-        \item Extend to richer effects and language features.
-    \end{itemize}
+    \item Non-terminating definitions would cause the logic to be inconsistent.
+    \item Agda's termination checker requires every recursive call to be on a structurally smaller argument.
+    \item A \texttt{\{-\# TERMINATING \#-\}} pragma leaves the burden to the programmer.
 \end{itemize}
 \end{frame}
 

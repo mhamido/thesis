@@ -199,9 +199,7 @@ data Frame : Type → Type → Set where
   _≈₂_           : δ ⊢ e ⇓ n → Hole → Frame Bool Nat
   Let₁_In_       : Hole → (Γ , T₁) ⊢ T₂ → Frame T₂ T₁
   Let₂_In_       : δ ⊢ e ⇓ v → Hole → Frame T₂ T₂
-  -- Interestingly _·_ has only two arguments but 3 sub-trees, thus we need 3 frames
-  -- Since we don't know the expression we get from the closure we technically have
-  -- 2 holes in one frame
+
   App₁           : Hole → Γ ⊢ T₁ → Frame T (T₁ ⇒ T₂)
   App₂           : δ ⊢ e₁ ⇓ v₁ → Hole → Frame T T₁
   App₃           : δ ⊢ e₁ ⇓ v₁ → δ ⊢ e₂ ⇓ v₂ → Hole → Frame T T₁
@@ -745,7 +743,6 @@ module NonTerminatingPrograms where
   -}
   
   {-
-  -- Is this even provable?
   prop₂ : ∀ {n : ℕ} → (∅ ⊢ (example₂ · Num 1) ⇓ Nat n) → ⊥
   prop₂ (APP d d₁ d₂) = {!!}
   prop₂ (RECAPP d d₁ d₂) = {!!}

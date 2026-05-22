@@ -1,8 +1,9 @@
 \documentclass[
 	bibliography=totoc, % Add the bibliography to the TOC
 	listof=totoc,      % Add the "List of *" to the TOC
-	%final              % Set document status as FINAL
+	final              % Set document status as FINAL
 	%draft              % Set document status as DRAFT: Faster, skips some stuff (e.g. referencing)
+  openany,              % Don't force chapters to start on odd pages
 ]{scrbook}              % scrbook defaults: a4paper, twoside, openright, 11pt
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -12,6 +13,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{amssymb}
 \usepackage{amsmath}
+\usepackage{mathpartir}
 
 
 
@@ -95,8 +97,9 @@
 \usepackage{blindtext} % Blind Text: Lorem ipsum....
 \usepackage[ngerman,english]{babel}
 \usepackage{fontspec}
-\setmonofont{JuliaMono-Medium}
+\setmonofont{JuliaMono}
 \usepackage{minted} % For code listings
+\setminted[agda]{fontsize=\small}
 \usepackage{stmaryrd}
 % \usepackage{tikz}
 % \usetikzlibrary{arrows.meta}
@@ -202,12 +205,12 @@ Kaiserslautern, den \the\day.\the\month.\the\year
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % List of Algorithms / Figures / ... %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\listoffigures
+% \listoffigures
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Appendix %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\input{appendix}
+% \input{appendix}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Biliography %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

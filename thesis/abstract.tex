@@ -5,7 +5,14 @@
 
 \begin{center}
 \begin{minipage}[t]{0.7\textwidth}
-	\blindtext[2]
+	Implementations of programming languages are expected to faithfully realize their specifications, yet in practice this correspondence is often validated only by testing against written standards or reference implementations. 
+	Since testing ranges over finitely many programs, it cannot establish the absence of mismatches for all well-typed inputs. 
+	This thesis develops a machine-checked approach in Agda in which an implementation is systematically derived from its formal semantics and proved correct by construction. 
+	We present a uniform derivation of abstract machines from semantic definitions, carried out for three case studies: arithmetic expressions, arithmetic expressions with exceptions, and the simply typed lambda calculus. 
+	The derivation makes evaluation structure explicit via typed frames and a stack of machine states, with operational modes for evaluation and return, and an additional unwind mode for exceptions. 
+	For each language, transition rules are obtained by mimicking in-order evaluation, and the resulting machine is proved correct and complete with respect to big-step semantics. 
+	As a corollary, we establish semantic equivalences between big-step, small-step, denotational, and abstract-machine presentations, showing that the semantics are compositional and mutually consistent. 
+	These results provide a systematic methodology for deriving verified interpreters from formal specifications.
 \end{minipage}
 \end{center}
 
@@ -15,7 +22,14 @@
 
 \begin{center}
 \begin{minipage}[t]{0.7\textwidth}
-	\blindtext[2]
+	Von Implementierungen von Programmiersprachen wird erwartet, dass sie ihre Spezifikationen treu umsetzen; in der Praxis wird diese Übereinstimmung jedoch oft nur durch Tests anhand von Spezifikationsdokumenten 
+	oder Referenzimplementierungen überprüft. Da sich die Tests auf eine endliche Anzahl von Programmen beschränken, können sie nicht für alle wohlgetypten Eingaben das Fehlen von Abweichungen nachweisen.
+	Diese Arbeit entwickelt einen maschinell überprüfbaren Ansatz in Agda, bei dem eine Implementierung systematisch aus ihrer formalen Semantik abgeleitet und durch Konstruktion als korrekt bewiesen wird.
+	Wir präsentieren eine einheitliche Ableitung abstrakter Maschinen aus semantischen Definitionen, die für drei Fallstudien durchgeführt wurde: arithmetische Ausdrücke, arithmetische Ausdrücke mit Ausnahmen und der einfach typisierte Lambda-Kalkül.
+	Die Ableitung macht die Auswertungsstruktur durch typisierte Frames und einen Stapel von Maschinenzuständen explizit, mit Betriebsmodi für die Auswertung und die Rückgabe sowie einem zusätzlichen Unwind-Modus für Ausnahmen.
+	Für jede Sprache werden Übergangsregeln durch Nachahmung der In-Order-Auswertung gewonnen, und die resultierende Maschine wird in Bezug auf die Big-Step-Semantik als korrekt und vollständig bewiesen.
+	Als Korollar stellen wir semantische Äquivalenzen zwischen Big-Step-, Small-Step-, denotationalen und abstrakten Maschinen-Darstellungen her und zeigen, dass die Semantiken kompositorisch und wechselseitig konsistent sind.
+	Diese Ergebnisse liefern eine systematische Methodik zur Ableitung verifizierter Interpreter aus formalen Spezifikationen.
 \end{minipage}
 \end{center}
 
